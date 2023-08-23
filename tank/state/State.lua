@@ -91,6 +91,7 @@ function State:tick()
 
         if self.load ~= nil and (self.tankPositionIsDirty or world.getTime() % 40 == 0) then
             pings.syncCriticalTank(self.load.tank:serialiseCritical())
+            self.tankPositionIsDirty = false
         end
     end
 end
