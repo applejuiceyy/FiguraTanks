@@ -8,22 +8,23 @@ local SpeedInstance = class("SpeedInstance")
 
 Speed.name = "default:speed"
 Speed.requiredPings = {
-    speed = function(self, tank)
-        tank:addEffect(SpeedInstance:new(tank))
+    speed = function(self, tank, lifespan, id)
+        if not tank:hasEffect(id) then
+            tank:addEffect(id, SpeedInstance:new(self, tank, lifespan, id))
+        end
     end
 }
 
 
-function Speed:init(pings, getTanks)
+function Speed:init(pings, state)
     self.pings = pings
-    self.getTanks = getTanks
-    self.bullets = {}
+    self.state = state
 end
 
 function Speed:tick() end
 
 function Speed:apply(tank)
-    self.pings.speed()
+    self.pings.speed(200, math.random())
 end
 
 function Speed:handleWeaponDamages(hits, tank)
@@ -42,9 +43,11 @@ function Speed:generateIconGraphics()
 end
 
 
-function SpeedInstance:init(tank)
+function SpeedInstance:init(owner, tank, lifespan, id)
+    self.owner = owner
     self.tank = tank
-    self.lifespan = 200
+    self.lifespan = lifespan
+    self.id = id
 end
 
 function SpeedInstance:tankMoveVerticallyInvoked(a, b, c)
@@ -57,6 +60,14 @@ end
 function SpeedInstance:tick()
     self.lifespan = self.lifespan - 1
     return self.lifespan > 0
+end
+
+function SpeedInstance:populateSyncQueue(consumer)
+    consumer(function()
+        if self.tank:hasEffect(self.id) then
+            self.owner.pings.speed(self.lifespan, self.id)
+        end
+    end)
 end
 
 

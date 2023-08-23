@@ -18,6 +18,12 @@ function State:init()
     self.load = nil
     self.syncTime = 100
 
+    self.tabletPingChannel = createPingChannel("tablet", UserTablet.requiredPings, function (_function, ...)
+        if self.load ~= nil then
+            _function(self.load.tablet, ...)
+        end
+    end)
+
     self.crateSpawner = CrateSpawner:new(
         createPingChannel("create-spawner", CrateSpawner.requiredPings, function(_function, ...)
             _function(self.crateSpawner, ...)
@@ -33,20 +39,20 @@ function State:init()
             local manager = require(path)
             local name = manager.name
 
-            local transformedPings = createPingChannel(manager.name, manager.requiredPings, function(_function, ...)
+            local transformedPings = createPingChannel("manager-" .. manager.name, manager.requiredPings, function(_function, ...)
                 if self.load ~= nil then
                     _function(self.itemManagers[name], self.load.tank, ...)
                 end
             end)
 
-            self.itemManagers[name] = manager:new(transformedPings, function()
-                if self.load ~= nil then
-                    return {self.load.tank}
-                else
-                    return {}
-                end
-            end)
+            self.itemManagers[name] = manager:new(transformedPings, self)
         end
+    end
+
+
+    self.syncQueue = {}
+    self.syncQueueConsumer = function(what)
+        table.insert(self.syncQueue, what)
     end
 end
 
@@ -70,12 +76,53 @@ function State:tick()
         if host:isHost() then
             self.load.HUD:afterTankTick(self.load.happenings)
         end
-        self.syncTime = self.syncTime - 1
-        if self.syncTime < 0 then
-            pings.syncTank(self.load.tank:serialise())
-            self.syncTime = 100
+    end
+
+    if host:isHost() then
+        if #self.syncQueue > 0 then
+            table.remove(self.syncQueue, 1)()
+        else
+            self.syncTime = self.syncTime - 1
+            if self.syncTime < 0 then
+                self:populateQueue()
+                self.syncTime = 100
+            end
+        end
+
+        if self.load ~= nil and (self.tankPositionIsDirty or world.getTime() % 40 == 0) then
+            pings.syncCriticalTank(self.load.tank:serialiseCritical())
         end
     end
+end
+
+function State:markTankPositionDirty()
+    self.tankPositionIsDirty = true
+end
+
+function State:populateTankQueue()
+    local dependentConsumer = util.dependsOn(self.syncQueueConsumer, function()
+        return self.load ~= nil
+    end)
+
+    dependentConsumer(function()
+        pings.syncTank(self.load.tank:serialise())
+    end)
+
+    if self.load.tank.currentWeapon ~= nil then
+        self.load.tank.currentWeapon:populateSyncQueue(dependentConsumer)
+    end
+
+    for id, effect in pairs(self.load.tank.effects) do
+        effect:populateSyncQueue(dependentConsumer)
+    end
+end
+
+function State:populateQueue()
+    if self.load ~= nil then
+        self:populateTankQueue()
+        self.load.tablet:populateSyncQueue(self.syncQueueConsumer)
+    end
+    self.crateSpawner:populateSyncQueue(self.syncQueueConsumer)
 end
 
 function State:render()
@@ -140,9 +187,10 @@ function loadTank()
         tank = state.load.tank,
         model = tankModel
     }
-    state.load.tablet = UserTablet:new{
-        tank = state.load.tank
-    }
+    state.load.tablet = UserTablet:new(
+        state.tabletPingChannel,
+        {tank = state.load.tank}
+    )
 
 
     if host:isHost() then
@@ -163,6 +211,13 @@ function pings.syncTank(...)
         loadTank()
     end
     state.load.tank:apply(...)
+end
+
+function pings.syncCriticalTank(...)
+    if state.load == nil then
+        return
+    end
+    state.load.tank:applyCritical(...)
 end
 
 function pings.removeTank()

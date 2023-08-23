@@ -14,9 +14,9 @@ TNTGun.requiredPings = {
     end
 }
 
-function TNTGun:init(pings, getTanks)
+function TNTGun:init(pings, state)
     self.pings = pings
-    self.getTanks = getTanks
+    self.state = state
     self.bullets = {}
 end
 
@@ -64,6 +64,7 @@ function TNTGun:handleWeaponDamages(hits, tank)
                     end
                     tank.health = tank.health - damage
                     tank.vel = tank.vel - (diff:normalize() * (5 - diff:length())) / 5
+                    self.state:markTankPositionDirty()
                     hits[uuid] = damage
                 end
             end

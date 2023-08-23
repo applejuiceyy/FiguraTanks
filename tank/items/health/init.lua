@@ -14,10 +14,9 @@ Health.requiredPings = {
 }
 
 
-function Health:init(pings, getTanks)
+function Health:init(pings, state)
     self.pings = pings
-    self.getTanks = getTanks
-    self.bullets = {}
+    self.state = state
 end
 
 function Health:tick() end

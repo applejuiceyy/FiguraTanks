@@ -14,6 +14,8 @@ local cratesIndexed = {}
 
 for key in pairs(crates) do
     table.insert(cratesIndexed, key)
+---@diagnostic disable-next-line: assign-type-mismatch
+    crates[key] = #cratesIndexed
 end
 
 CrateSpawner.requiredPings = {
@@ -142,6 +144,17 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
     avatar:store("__FiguraTanks_crates", self.publicFacingCrates)
 end
 
+function CrateSpawner:populateSyncQueue(consumer)
+    for i, crate in pairs(self.currentCrates) do
+        local against = crate.spawned
+        consumer(function()
+            if self.currentCrates[i] ~= nil and self.currentCrates[i].spawned == against then
+                self.pings.syncCrate(crate.location, crates[crate.kind], crate.spawned)
+            end
+        end)
+    end
+end
+
 function CrateSpawner:deleteCrate(location)
     local s = util.serialisePos(location)
     if self.currentCrates[s] ~= nil then
@@ -261,7 +274,7 @@ function CrateSpawner:render()
         local since = world.getTime() - privateCrate.spawned
 
         if since >= 99 then
-            privateCrate.crateModel:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0, 8)))
+            privateCrate.crateModel:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0.1, 8)))
             local id = world.getBlockState(privateCrate.location - vec(0, 1, 0)).id
             pcall(function()
                 for i = 0, 40 do

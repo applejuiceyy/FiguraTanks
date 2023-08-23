@@ -6,9 +6,15 @@ local WorldSlice     = require("tank.model.WorldSlice")
 
 local UserTablet = class("UserTablet")
 
+UserTablet.requiredPings = {
+    syncEquip = function(self, state)
+        util.notHost()
+        self:setEquipped(state)
+    end
+}
 
-
-function UserTablet:init(opt)
+function UserTablet:init(pings, opt)
+    self.pings = pings
     self.tank = opt.tank
 
     local tankModel = util.deepcopy(models.models.tank.body)
@@ -30,6 +36,24 @@ function UserTablet:init(opt)
     }
 
     self.equipped = false
+end
+
+function UserTablet:populateSyncQueue(consumer)
+    consumer(function()
+        self.pings.syncEquip(self.equipped)
+    end)
+end
+
+function UserTablet:setEquipped(state)
+    state = not not state
+    if self.equipped ~= state then
+        if state then
+            self:equip()
+        else
+            self:unequip()
+        end
+        self.equipped = state
+    end
 end
 
 function UserTablet:equip()

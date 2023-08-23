@@ -14,9 +14,9 @@ MassTNTGun.requiredPings = {
     end
 }
 
-function MassTNTGun:init(pings, getTanks)
+function MassTNTGun:init(pings, state)
     self.pings = pings
-    self.getTanks = getTanks
+    self.state = state
     self.bullets = {}
     self.queuedRemoval = {}
 end

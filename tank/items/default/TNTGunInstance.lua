@@ -20,6 +20,10 @@ function TNTGunInstance:tick()
     end
 end
 
+function TNTGunInstance:populateSyncQueue()
+    -- no need: already comes by default
+end
+
 function TNTGunInstance:generateHudGraphics()
     local group = util.group()
     local rt = group:newBlock("e")

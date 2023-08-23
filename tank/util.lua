@@ -44,5 +44,20 @@ return {
     end,
     deepcopy = deepcopy,
     transform = transform,
-    serialisePos = serialisePos
+    serialisePos = serialisePos,
+    dependsOn = function(consumer, predicate)
+        return function(func)
+            consumer(function()
+                if predicate() then
+                    func()
+                end
+            end)
+        end
+    end,
+
+    notHost = function()
+        if host:isHost() then
+            error({nonerror = true})
+        end
+    end
 }

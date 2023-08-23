@@ -106,8 +106,12 @@ function Tank:init(weaponHandler)
     self.effects = {}
 end
 
-function Tank:addEffect(effect)
-    self.effects[effect] = true
+function Tank:addEffect(vid, effect)
+    self.effects[vid] = effect
+end
+
+function Tank:hasEffect(vid)
+    return self.effects[vid] ~= nil
 end
 
 function Tank:setWeapon(gunFactory)
@@ -223,7 +227,7 @@ function Tank:invokeInterested(name, ...)
     if self.currentWeapon ~= nil and self.currentWeapon["tank" .. name .. "Invoked"] ~= nil then
         stuff = {self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, table.unpack(stuff))}
     end
-    for effect in pairs(self.effects) do
+    for _, effect in pairs(self.effects) do
         if effect["tank" .. name .. "Invoked"] ~= nil then
             stuff = {effect["tank" .. name .. "Invoked"](effect, table.unpack(stuff))}
         end
@@ -289,9 +293,9 @@ function Tank:tick()
             self.currentWeapon:tick()
         end
 
-        for v in pairs(self.effects) do
+        for vid, v in pairs(self.effects) do
             if not v:tick() then
-                self.effects[v] = nil
+                self.effects[vid] = nil
             end
         end
 
@@ -350,6 +354,10 @@ function Tank:serialise()
     return self.pos, self.vel, self.angle, self.anglemomentum, self.health, self.nozzle, self.dead, self.fire
 end
 
+function Tank:serialiseCritical()
+    return self.pos, self.vel, self.health, self.dead, self.fire
+end
+
 function Tank:apply(pos, vel, angle, anglemomentum, health, nozzle, dead, fire)
     self.pos = pos
     self.vel = vel
@@ -357,6 +365,14 @@ function Tank:apply(pos, vel, angle, anglemomentum, health, nozzle, dead, fire)
     self.anglemomentum = anglemomentum
     self.health = health
     self.nozzle = nozzle
+    self.dead = dead
+    self.fire = fire
+end
+
+function Tank:applyCritical(pos, vel, health, dead, fire)
+    self.pos = pos
+    self.vel = vel
+    self.health = health
     self.dead = dead
     self.fire = fire
 end
