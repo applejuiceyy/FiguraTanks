@@ -2,35 +2,35 @@ local class          = require("tank.class")
 local util        = require("tank.util")
 
 
-local Speed = class("Speed")
-local SpeedInstance = class("SpeedInstance")
+local Friction = class("Friction")
+local FrictionInstance = class("FrictionInstance")
 
 
-Speed.name = "default:speed"
-Speed.requiredPings = {
+Friction.name = "default:friction"
+Friction.requiredPings = {
     speed = function(self, tank)
-        tank:addEffect(SpeedInstance:new(tank))
+        tank:addEffect(FrictionInstance:new(tank))
     end
 }
 
 
-function Speed:init(pings, getTanks)
+function Friction:init(pings, getTanks)
     self.pings = pings
     self.getTanks = getTanks
     self.bullets = {}
 end
 
-function Speed:tick() end
+function Friction:tick() end
 
-function Speed:apply(tank)
+function Friction:apply(tank)
     self.pings.speed()
 end
 
-function Speed:handleWeaponDamages(hits, tank)
+function Friction:handleWeaponDamages(hits, tank)
 
 end
 
-function Speed:generateIconGraphics()
+function Friction:generateIconGraphics()
     local group = util.group()
     local rt = group:newBlock("e")
     rt:setBlock("red_concrete")
@@ -42,19 +42,19 @@ function Speed:generateIconGraphics()
 end
 
 
-function SpeedInstance:init(tank)
+function FrictionInstance:init(tank)
     self.tank = tank
-    self.lifespan = 200
+    self.lifespan = 1000
 end
 
-function SpeedInstance:tankMoveVerticallyInvoked(a, b, c)
+function FrictionInstance:tankMoveVerticallyInvoked(a, b, c)
     if self.lifespan <= 0 then
         return a, b, c
     end
-    return a, b * 1.5, c
+    return world.newBlock("minecraft:dirt"):getFriction(), b, c
 end
 
-function SpeedInstance:tick()
+function FrictionInstance:tick()
     self.lifespan = self.lifespan - 1
     return self.lifespan > 0
 end
@@ -62,4 +62,4 @@ end
 
 
 
-return Speed
+return Friction

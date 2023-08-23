@@ -21,7 +21,7 @@ function UserTablet:init(opt)
     self.paperModel = TankModel:new{
         tank = self.tank,
         model = tankModel,
-        spawnParticles = false
+        isHud = true
     }
 
     self.worldSlice = WorldSlice:new{

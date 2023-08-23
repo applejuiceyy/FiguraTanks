@@ -2,11 +2,11 @@ local class          = require("tank.class")
 local util        = require("tank.util")
 
 
-local Speed = class("Speed")
+local Health = class("Health")
 
 
-Speed.name = "default:speed"
-Speed.requiredPings = {
+Health.name = "default:health"
+Health.requiredPings = {
     health = function(self, tank)
         tank.health = tank.health + 20
         tank.health = math.min(tank.health, 100)
@@ -14,23 +14,23 @@ Speed.requiredPings = {
 }
 
 
-function Speed:init(pings, getTanks)
+function Health:init(pings, getTanks)
     self.pings = pings
     self.getTanks = getTanks
     self.bullets = {}
 end
 
-function Speed:tick() end
+function Health:tick() end
 
-function Speed:apply(tank)
+function Health:apply(tank)
     self.pings.health()
 end
 
-function Speed:handleWeaponDamages(hits, tank)
+function Health:handleWeaponDamages(hits, tank)
 
 end
 
-function Speed:generateIconGraphics()
+function Health:generateIconGraphics()
     local group = util.group()
     local rt = group:newBlock("e")
     rt:setBlock("red_concrete")
@@ -52,4 +52,4 @@ end
 
 
 
-return Speed
+return Health

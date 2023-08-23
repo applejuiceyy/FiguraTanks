@@ -1,6 +1,6 @@
 local function collidesWithRectangle(highpos, lowpos, highthat, lowthat)
-    --[[
-    particles:newParticle("minecraft:dust 1 1 1 1", lowthat.___ + highthat.xyz)
+    
+    --[[particles:newParticle("minecraft:dust 1 1 1 1", lowthat.___ + highthat.xyz)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat.x__ + highthat._yz)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat._y_ + highthat.x_z)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat.xy_ + highthat.__z)

@@ -11,6 +11,11 @@ function TankModelController:init(opt)
     self.oldvel = vec(0, 0, 0)
     self.oldTargetVelocity = vec(0, 0, 0)
 
+    self.soundPower = 1
+    self.sounds = {}
+    self.stress = 0
+    self.oldMonitor = 0
+
     self.model:setVisible(true)
     self.model.hull:setVisible(true)
     self.model.nozzle:setVisible(true)
@@ -26,7 +31,17 @@ function TankModelController:beforeTankTick(oldHappenings)
     end
 end
 function TankModelController:afterTankTick(happenings)
-    
+    if not self.opt.isHUD then
+        if happenings.targetVelocity:length() < 0.1 then
+            self.soundPower = self.soundPower - 0.005
+        else
+            self.soundPower = self.soundPower + 0.1
+        end
+        self.soundPower = math.max(0, math.min(self.soundPower, 0.7))
+        if self.soundPower > 0 then
+            self:spawnTankEngineNoises()
+        end
+    end
 end
 
 function TankModelController:render(happenings)
@@ -41,11 +56,13 @@ function TankModelController:render(happenings)
     )
     local E = 50
 
+    local treshhold = math.max(6 - happenings.targetVelocity:length() * 20, 1)
+
     self.model:setMatrix(
         util.transform(
             matrices.yRotation4(180),
             matrices.zRotation4((rotatedVelocity.x + rotatedVelocity.y * 2) * E),
-            matrices.xRotation4(rotatedVelocity.z * E * 4),
+            matrices.xRotation4(rotatedVelocity.z * E * 4 + (self.stress / treshhold - math.pow(self.stress / treshhold, 2))),
             matrices.yRotation4(lerpAngle),
             matrices.translate4((lerpPos + vec(0, math.abs(rotatedVelocity.x) / 4, 0)) * 16)
         )
@@ -55,8 +72,54 @@ function TankModelController:render(happenings)
     self.model.nozzle.tube:setRot(0, 0, self.tank.nozzle.y)
     self.model.Camera.health.health:setScale(self.tank.health / 2, 1, 1)
 
-    if self.opt.spawnParticles == nil or self.opt.spawnParticles then
+    if not self.opt.isHUD then
         self:spawnDragParticles(happenings)
+        self:spawnTankIgnitionSound(happenings)
+    end
+end
+
+function TankModelController:spawnTankIgnitionSound(happenings)
+    local time = world.getTime(client.getFrameTime())
+    local diff = time - self.oldMonitor
+    local currentTreshhold = math.max(6 - happenings.targetVelocity:length() * 20, 1)
+    self.stress = self.stress + diff
+
+    if self.stress > currentTreshhold then
+        self.stress = self.stress - currentTreshhold
+        if self.stress > currentTreshhold then
+            self.stress = 0
+        end
+        table.insert(self.sounds, sounds["entity.iron_golem.repair"]
+            :pos(self.tank.pos)
+            :volume((0.06 + happenings.targetVelocity:length() / 20) * self.soundPower)
+            :pitch(0.17 + happenings.targetVelocity:length() / 100)
+            :subtitle()
+            :play()
+        )
+
+        particles["smoke"]
+        :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.2, -0.3), vec(0, 1, 0)) + self.tank.pos)
+        :velocity(vectors.rotateAroundAxis(self.tank.angle, vec(-0.05, 0, 0), vec(0, 1, 0)))
+        :scale(0.3, 0.3, 0.3)
+        :spawn()
+    end
+
+    self.oldMonitor = time
+end
+
+function TankModelController:spawnTankEngineNoises()
+
+    
+    table.insert(self.sounds, sounds["entity.iron_golem.death"]
+        :pos(self.tank.pos)
+        :volume(0.01 * self.soundPower)
+        :pitch(0.8)
+        :subtitle()
+        :play()
+    )
+
+    while #self.sounds > 8 do
+        table.remove(self.sounds, 1):stop()
     end
 end
 

@@ -55,7 +55,9 @@ function TankModelController:render()
         end
     end
 
-    self.tankModel.model.nozzle:setVisible(not (renderer:isFirstPerson() and self.focusingTank))
+    local e =not (renderer:isFirstPerson() and self.focusingTank)
+    self.tankModel.model.nozzle:setVisible(e)
+    self.tankModel.model.Camera:setVisible(e)
 end
 
 function TankModelController:dispose()

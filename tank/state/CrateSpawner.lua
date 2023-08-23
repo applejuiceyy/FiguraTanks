@@ -5,9 +5,9 @@ local collision = require("tank.collision")
 local CrateSpawner     = class("CrateSpawner")
 
 local crates = {
-    ["default:speed"] = function(self, tank)
-        self.state.itemManagers["default:speed"]:apply(tank)
-    end
+    ["default:health"] = true,
+    ["default:speed"] = true,
+    ["default:friction"] = true
 }
 
 local cratesIndexed = {}
@@ -17,8 +17,8 @@ for key in pairs(crates) do
 end
 
 CrateSpawner.requiredPings = {
-    spawnCrate = function(self, ...)
-        self:spawnCrate(...)
+    syncCrate = function(self, ...)
+        self:syncCrate(...)
     end,
 
     deleteCrate = function(self, pos)
@@ -44,6 +44,8 @@ CrateSpawner.requiredPings = {
 function CrateSpawner:init(pings, state)
     self.pings = pings
 
+    self.tryingToSpawnCrates = false
+
     self.state = state
     self.currentlyAnimatedCrates = {}
     self.currentCrates = {}
@@ -53,71 +55,53 @@ function CrateSpawner:init(pings, state)
     self.tankReachedCrateAcknowledgement = {}
 
     self.awaitingCrateAcknowledgement = {}
-
-    self.potentialPos = nil
-    self.currentScanningPlayerUUID = nil
-    self.currentScanningCratePos = nil
 end
 
 function CrateSpawner:trySpawnCrate()
-    if self.potentialPos == nil then
-        local x = math.random(-20, 20)
-        local y = math.random(-20, 20)
-        local z = math.random(-20, 20)
+    self.tryingToSpawnCrates = self.tryingToSpawnCrates or math.random() > 0.99
+    if not self.tryingToSpawnCrates then
+        return
+    end
 
-        local center = player:getPos():floor()
+    local x = math.random(-20, 20)
+    local y = math.random(-5, 5)
+    local z = math.random(-20, 20)
 
-        if self.state.load ~= nil and math.random() > 0.5 then
-            center = self.state.load.tank.pos:copy():floor()
-        end
+    local center = player:getPos():floor()
 
-        local place = vec(x, y, z) + center
+    if self.state.load ~= nil and math.random() > 0.5 then
+        center = self.state.load.tank.pos:copy():floor()
+    end
 
-        if world.getBlockState(place):isAir() and world.getBlockState(place - vec(0, 1, 0)):isFullCube() then
-            self.potentialPos = place
-            self.currentScanningCratePos = nil
-            self.currentScanningPlayerUUID = nil
-        end
-    else
-        --[[
-        for uuid, stuff in pairs(world.avatarVars()) do
-            if stuff.__FiguraTanks_crates ~= nil then
-                for _, crate in ipairs(stuff.__FiguraTanks_crates) do
-                    if (crate.location - self.potentialPos):length() < 5 then
-                        self.potentialPos = nil
-                    end
+    local place = vec(x, y, z) + center
+
+
+
+    if not (world.getBlockState(place):isAir() and world.getBlockState(place - vec(0, 1, 0)):isFullCube()) then
+        return
+    end
+
+    for uuid, stuff in pairs(world.avatarVars()) do
+        if stuff.__FiguraTanks_crates ~= nil then
+            for _, crate in pairs(stuff.__FiguraTanks_crates) do
+                if (crate.location - place):length() < 20 then
+                    return
                 end
             end
-        end
-        ]]
-
-        local avatarVars = world.avatarVars()
-        local nextvalue, stuff = next(avatarVars, self.currentScanningPlayerUUID)
-
-        if stuff ~= nil and stuff.__FiguraTanks_crates ~= nil then
-            local value
-            self.currentScanningCratePos, value = next(stuff.__FiguraTanks_crates, self.currentScanningCratePos)
-
-            if self.currentScanningCratePos == nil then
-                self.currentScanningPlayerUUID = nextvalue
-            else
-                if (value.location - self.potentialPos):length() < 10 then
-                    self.potentialPos = nil
-                end
-            end
-        else
-            self.currentScanningPlayerUUID = nextvalue
-        end
-
-        if nextvalue == nil then
-            local kindIndex = math.random(1, #cratesIndexed)
-            self.pings.spawnCrate(self.potentialPos, kindIndex)
-            self.potentialPos = nil
         end
     end
+
+
+    local kindIndex = math.random(1, #cratesIndexed)
+    self.pings.syncCrate(place, kindIndex, world.getTime())
+    self.tryingToSpawnCrates = false
 end
 
-function CrateSpawner:spawnCrate(location, kindIndex)
+function CrateSpawner:syncCrate(location, kindIndex, validIn)
+    local s = util.serialisePos(location)
+    if self.currentCrates[s] then
+        return
+    end
     local kind = cratesIndexed[kindIndex]
     local icon = self.state.itemManagers[kind]:generateIconGraphics()
     models.world:addChild(icon)
@@ -136,21 +120,21 @@ function CrateSpawner:spawnCrate(location, kindIndex)
         matrices.scale4(0.6, 0.8, 0.6)
     ))
     models.world:addChild(crate)
-    local s = util.serialisePos(location)
+
 
     self.currentCrates[s] = {
         location = location,
         kind = kind,
         groundModel = icon,
         crateModel = crate,
-        spawned = world.getTime(),
+        spawned = validIn,
         modelRotation = math.random() * 360
     }
 
     self.publicFacingCrates[s] = {
         location = location,
         kind = kind,
-        validIn = world.getTime() + 100
+        validIn = validIn + 100
     }
 
     self.currentlyAnimatedCrates[s] = true
@@ -170,61 +154,60 @@ function CrateSpawner:deleteCrate(location)
     end
 end
 
-function CrateSpawner:tick()
-    self:trySpawnCrate()
+function CrateSpawner:testCrateReach()
+    local vars = world.avatarVars()
+    local tank = self.state.load.tank
+    local highCollisionShape, lowCollisionShape = tank:getCollisionShape()
+    for otherUUID, stuff in pairs(vars) do
+        if stuff.__FiguraTanks_crates ~= nil then
+            for str, data in pairs(stuff.__FiguraTanks_crates) do
+                if (
+                    self.awaitingCrateAcknowledgement[otherUUID] == nil or
+                    self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] == nil
+                )
 
+                and
+
+                data.validIn < world.getTime()
+
+                and
+
+                collision.collidesWithRectangle(
+                    highCollisionShape + tank.pos,
+                    lowCollisionShape + tank.pos,
+                    data.location + vec(0.8, 0.8, 0.8),
+                    data.location + vec(0.2, 0, 0.2)
+                ) then
+                    if self.awaitingCrateAcknowledgement[otherUUID] == nil then
+                        self.awaitingCrateAcknowledgement[otherUUID] = {}
+                    end
+                    self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] = {
+                        location = data.location,
+                        kind = data.kind
+                    }
+                    print(string.format("Sending tank reach to crate %q from %q", data.kind, world.getEntity(otherUUID):getName()))
+                    self.pings.tankReachedCrate(otherUUID, data.location)
+                end
+            end
+        end
+    end
+end
+
+function CrateSpawner:sendCrateReachAcknowledgments()
+    local vars = world.avatarVars()
+    for otherUUID, stuff in pairs(vars) do
+        if stuff.__FiguraTanks_tankReachedCrate ~= nil and stuff.__FiguraTanks_tankReachedCrate[player:getUUID()] ~= nil then
+            for _, pos in pairs(stuff.__FiguraTanks_tankReachedCrate[player:getUUID()]) do
+                print(string.format("Acknowledging tank's %q reach to crate", world.getEntity(otherUUID):getName()))
+                self.pings.tankReachedCrateAcknowledgement(otherUUID, pos)
+            end
+        end
+    end
+end
+
+function CrateSpawner:applyCrateAcknowledgementEffects()
     local myUUID = player:getUUID()
     local vars = world.avatarVars()
-
-    if self.state.load ~= nil then
-        local tank = self.state.load.tank
-        local highCollisionShape, lowCollisionShape = tank:getCollisionShape()
-        for otherUUID, stuff in pairs(vars) do
-            if stuff.__FiguraTanks_crates ~= nil then
-                for str, data in pairs(stuff.__FiguraTanks_crates) do
-                    if (
-                        self.awaitingCrateAcknowledgement[otherUUID] == nil or
-                        self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] == nil
-                    ) and
-                    collision.collidesWithRectangle(
-                        highCollisionShape + tank.pos,
-                        lowCollisionShape + tank.pos,
-                        data.location + vec(0.8, 0.8, 0.8),
-                        data.location + vec(0.2, 0, 0.2)
-                    ) then
-                        if self.awaitingCrateAcknowledgement[otherUUID] == nil then
-                            self.awaitingCrateAcknowledgement[otherUUID] = {}
-                        end
-                        self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] = {
-                            location = data.location,
-                            kind = data.kind
-                        }
-                        self.pings.tankReachedCrate(otherUUID, data.location)
-                    end
-                end
-            end
-        end
-    end
-
-    for _, stuff in ipairs(self.currentCrates) do
-        particles:newParticle("dust 1 1 1 1", stuff.location + vec(0.5, 0.5, 0.5))
-    end
-    if self.potentialPos ~= nil then
-        particles:newParticle("dust 1 0 0 1", self.potentialPos + vec(0.5, 0.5, 0.5))
-    end
-
-    for otherUUID, stuff in pairs(vars) do
-        if stuff.__FiguraTanks_tankReachedCrate ~= nil then
-            for crateOwnerUUID, crateData in pairs(stuff.__FiguraTanks_tankReachedCrate) do
-                if crateOwnerUUID == otherUUID then
-                    for _, pos in pairs(crateData) do
-                        self.pings.tankReachedCrateAcknowledgement(otherUUID, pos)
-                    end
-                end
-            end
-        end
-    end
-
     for crateOwnerUUID, ccrates in pairs(self.awaitingCrateAcknowledgement) do
         if vars[crateOwnerUUID] == nil then
             self.awaitingCrateAcknowledgement[crateOwnerUUID] = nil
@@ -233,7 +216,12 @@ function CrateSpawner:tick()
             if acknowledgements ~= nil then
                 for st, data in pairs(ccrates) do
                     if acknowledgements[st] ~= nil then
-                        crates[data.kind](self, self.state.load.tank)
+                        print(string.format("Applying effect %q from %q", data.kind, world.getEntity(crateOwnerUUID):getName()))
+                        self:applyEffect(crateOwnerUUID, data.kind)
+                        self.awaitingCrateAcknowledgement[crateOwnerUUID][st] = nil
+                        if next(self.awaitingCrateAcknowledgement[crateOwnerUUID]) == nil then
+                            self.awaitingCrateAcknowledgement[crateOwnerUUID] = nil
+                        end
                     end
                 end
             end
@@ -241,13 +229,45 @@ function CrateSpawner:tick()
     end
 end
 
+function CrateSpawner:applyEffect(owner, id)
+    if not crates[id] then
+        host:setActionbar(
+            string.format(
+                '[{"text":"Unknown item "}, {"text":%q, "color":"#ff6622"}, {"text": ", maybe "}, {"text":%q, "color":"#ff6622"}, {"text":" has a custom item?"}]',
+                id, world.getEntity(owner):getName()
+            )
+        )
+        return
+    end
+    
+    self.state.itemManagers[id]:apply(self.state.load.tank)
+end
+
+function CrateSpawner:tick()
+    for i = 0, 10 do
+        self:trySpawnCrate()
+    end
+
+    if self.state.load ~= nil then
+        self:testCrateReach()
+    end
+    self:sendCrateReachAcknowledgments()
+    self:applyCrateAcknowledgementEffects()
+end
+
 function CrateSpawner:render()
     for pos in pairs(self.currentlyAnimatedCrates) do
         local privateCrate = self.currentCrates[pos]
         local since = world.getTime() - privateCrate.spawned
 
-        if since >= 100 then
+        if since >= 99 then
             privateCrate.crateModel:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0, 8)))
+            local id = world.getBlockState(privateCrate.location - vec(0, 1, 0)).id
+            pcall(function()
+                for i = 0, 40 do
+                    particles:newParticle("block " .. id, privateCrate.location + vec(0.5, 0, 0.5), vec(math.random() * 100 - 50, math.random() * 100 - 50, math.random() * 100 - 50))
+                end
+            end)
             self.currentlyAnimatedCrates[pos] = nil
         else
             privateCrate.crateModel:matrix(

@@ -103,6 +103,11 @@ function Tank:init(weaponHandler)
     self.onDash = Event:new()
 
     self.currentWeapon = nil
+    self.effects = {}
+end
+
+function Tank:addEffect(effect)
+    self.effects[effect] = true
 end
 
 function Tank:setWeapon(gunFactory)
@@ -214,10 +219,17 @@ function Tank:takeVoidDamage()
 end
 
 function Tank:invokeInterested(name, ...)
-    if self.currentWeapon ~= nil and self.currentWeapon[name .. "Invoked"] ~= nil then
-        return self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, ...)
+    local stuff = {...}
+    if self.currentWeapon ~= nil and self.currentWeapon["tank" .. name .. "Invoked"] ~= nil then
+        stuff = {self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, table.unpack(stuff))}
     end
-    return ...
+    for effect in pairs(self.effects) do
+        if effect["tank" .. name .. "Invoked"] ~= nil then
+            stuff = {effect["tank" .. name .. "Invoked"](effect, table.unpack(stuff))}
+        end
+    end
+
+    return table.unpack(stuff)
 end
 
 function Tank:tick()
@@ -275,6 +287,12 @@ function Tank:tick()
 
         if self.currentWeapon ~= nil then
             self.currentWeapon:tick()
+        end
+
+        for v in pairs(self.effects) do
+            if not v:tick() then
+                self.effects[v] = nil
+            end
         end
 
         if self.controller.dash and self.dash >= 1 then

@@ -36,6 +36,12 @@ end
 
 return {
     group = createGroup,
+    worldGroup = function()
+        local group = createGroup()
+        models.world:addChild(group)
+        group:setParentType("WORLD")
+        return group
+    end,
     deepcopy = deepcopy,
     transform = transform,
     serialisePos = serialisePos
