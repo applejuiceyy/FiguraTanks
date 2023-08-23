@@ -38,7 +38,7 @@ function TankModelController:afterTankTick(happenings)
             self.soundPower = self.soundPower + 0.1
         end
         self.soundPower = math.max(0, math.min(self.soundPower, 0.7))
-        if self.soundPower > 0 then
+        if self.soundPower > 0 and (not self.tank.dead) then
             self:spawnTankEngineNoises()
         end
     end
@@ -72,7 +72,7 @@ function TankModelController:render(happenings)
     self.model.nozzle.tube:setRot(0, 0, self.tank.nozzle.y)
     self.model.Camera.health.health:setScale(self.tank.health / 2, 1, 1)
 
-    if not self.opt.isHUD then
+    if not self.opt.isHUD and (not self.tank.dead) then
         self:spawnDragParticles(happenings)
         self:spawnTankIgnitionSound(happenings)
     end

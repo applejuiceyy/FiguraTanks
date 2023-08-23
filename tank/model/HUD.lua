@@ -151,7 +151,6 @@ function HUD:afterTankTick(happenings)
     self.previousAntennaRot = self.antennaRot
     self.antennaRot = self.antennaRot + self.antennaRotMomentum
 
-    self.crateCompess:update(self.tank.pos)
     local bestYaw = self.worldSlice:update(self.tank.pos)
     self.backgroundWorldSlice:update(self.tank.pos)
 
@@ -177,11 +176,12 @@ function HUD:render(happenings)
     self.paperModel:render(happenings)
     local size = client.getWindowSize()
     local scale = client.getGuiScale()
+    local lerpedPos = math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime())
     -- -math.lerp(self.tank.oldangle, self.tank.angle, client.getFrameTime())
     local rotateBy = math.lerpAngle(self.previousPaperModelCurrentRotation, self.paperModelCurrentRotation, 1 - math.pow(0.9, world.getTime(client.getFrameTime()) - self.startShiftAnimationPaperModelCurrentRotation))
     self.paperModelRoller:setMatrix(
         util.transform(
-            matrices.translate4(-math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime()) * 16),
+            matrices.translate4(-lerpedPos * 16),
             matrices.rotation4(0, rotateBy, 0),
             matrices.rotation4(-40, 0, 0),
             matrices.scale4(0.5, 0.5, 0.01),
@@ -190,16 +190,17 @@ function HUD:render(happenings)
     )
     self.backgroundPaperModelRoller:setMatrix(
         util.transform(
-            matrices.translate4(-math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime()) * 16),
+            matrices.translate4(-lerpedPos * 16),
             matrices.rotation4(0, rotateBy, 0),
             matrices.rotation4(-40, 0, 0),
             matrices.scale4(0.5, 0.5, 0.01),
             matrices.translate4(vec(-size.x * 0.5 / scale, -size.y * 0.8 / scale, 1))
         )
     )
-    self.compassGroup:setMatrix(
+    self.crateCompess:update(lerpedPos)
+    --[[self.compassGroup:setMatrix(
         matrices.translate4(math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime()) * 16)
-    )
+    )]]
 
     self.keywords:render(client.getFrameTime())
 end
