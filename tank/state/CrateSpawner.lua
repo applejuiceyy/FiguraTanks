@@ -1,6 +1,7 @@
 local class     = require("tank.class")
 local util      = require("tank.util")
 local collision = require("tank.collision")
+local CrateCrater = require("tank.model.CrateCrater")
 
 local CrateSpawner     = class("CrateSpawner")
 
@@ -32,6 +33,14 @@ CrateSpawner.requiredPings = {
             self.tankReachedCrateAcknowledgement[avatarId] = {}
         end
         self.tankReachedCrateAcknowledgement[avatarId][util.serialisePos(pos)] = pos
+        
+
+        for i = 0, 10 do
+            particles:newParticle("happy_villager",
+                pos + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6) + vec(0.5, 0, 0.5)
+        ):velocity((math.random() - 0.5) / 10, (math.random() - 0.5) / 10, (math.random() - 0.5) / 10)
+        end
+
         self:deleteCrate(pos)
     end,
 
@@ -47,6 +56,8 @@ function CrateSpawner:init(pings, state)
     self.pings = pings
 
     self.tryingToSpawnCrates = false
+
+    self.craters = {}
 
     self.state = state
     self.currentlyAnimatedCrates = {}
@@ -121,6 +132,24 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
         matrices.translate4(-8, 0, -8),
         matrices.scale4(0.6, 0.8, 0.6)
     ))
+
+    local overTextGroup = util.group()
+    overTextGroup:setParentType("CAMERA")
+
+
+    local anchorGrup = util.group()
+    anchorGrup:setPos(0, 20, 0)
+    anchorGrup:addChild(overTextGroup)
+
+    local text = overTextGroup:newText("e")
+    text:setText(string.format('[{"text":%q, "color":"#ff6622"}, {"text":"\\n"}, {"text":"Crate hosted by ", "color":"#ffffff"}, {"text":%q, "color":"#ff6622"}]', kind, player:getName()))
+    text:setAlignment("CENTER")
+    text:setPos(0, 9 * 0.4, 0)
+    text:setScale(0.4, 0.4, 0.4)
+    text:shadow(true)
+    crate:addChild(anchorGrup)
+
+
     models.world:addChild(crate)
 
 
@@ -181,7 +210,7 @@ function CrateSpawner:testCrateReach()
 
                 and
 
-                data.validIn < world.getTime()
+                (data.validIn - 2 == world.getTime() or data.validIn <= world.getTime())
 
                 and
 
@@ -191,15 +220,21 @@ function CrateSpawner:testCrateReach()
                     data.location + vec(0.8, 0.8, 0.8),
                     data.location + vec(0.2, 0, 0.2)
                 ) then
-                    if self.awaitingCrateAcknowledgement[otherUUID] == nil then
-                        self.awaitingCrateAcknowledgement[otherUUID] = {}
+                    if data.validIn - 2 == world.getTime() then
+                        tank.health = tank.health - 20
                     end
-                    self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] = {
-                        location = data.location,
-                        kind = data.kind
-                    }
-                    print(string.format("Sending tank reach to crate %q from %q", data.kind, world.getEntity(otherUUID):getName()))
-                    self.pings.tankReachedCrate(otherUUID, data.location)
+
+                    if data.validIn <= world.getTime() then
+                        if self.awaitingCrateAcknowledgement[otherUUID] == nil then
+                            self.awaitingCrateAcknowledgement[otherUUID] = {}
+                        end
+                        self.awaitingCrateAcknowledgement[otherUUID][util.serialisePos(data.location)] = {
+                            location = data.location,
+                            kind = data.kind
+                        }
+                        --print(string.format("Sending tank reach to crate %q from %q", data.kind, world.getEntity(otherUUID):getName()))
+                        self.pings.tankReachedCrate(otherUUID, data.location)
+                    end
                 end
             end
         end
@@ -211,7 +246,7 @@ function CrateSpawner:sendCrateReachAcknowledgments()
     for otherUUID, stuff in pairs(vars) do
         if stuff.__FiguraTanks_tankReachedCrate ~= nil and stuff.__FiguraTanks_tankReachedCrate[player:getUUID()] ~= nil then
             for _, pos in pairs(stuff.__FiguraTanks_tankReachedCrate[player:getUUID()]) do
-                print(string.format("Acknowledging tank's %q reach to crate", world.getEntity(otherUUID):getName()))
+                --print(string.format("Acknowledging tank's %q reach to crate", world.getEntity(otherUUID):getName()))
                 self.pings.tankReachedCrateAcknowledgement(otherUUID, pos)
             end
         end
@@ -229,7 +264,7 @@ function CrateSpawner:applyCrateAcknowledgementEffects()
             if acknowledgements ~= nil then
                 for st, data in pairs(ccrates) do
                     if acknowledgements[st] ~= nil then
-                        print(string.format("Applying effect %q from %q", data.kind, world.getEntity(crateOwnerUUID):getName()))
+                        --print(string.format("Applying effect %q from %q", data.kind, world.getEntity(crateOwnerUUID):getName()))
                         self:applyEffect(crateOwnerUUID, data.kind)
                         self.awaitingCrateAcknowledgement[crateOwnerUUID][st] = nil
                         if next(self.awaitingCrateAcknowledgement[crateOwnerUUID]) == nil then
@@ -273,14 +308,25 @@ function CrateSpawner:render()
         local privateCrate = self.currentCrates[pos]
         local since = world.getTime() - privateCrate.spawned
 
-        if since >= 99 then
+        if since >= 100 then
             privateCrate.crateModel:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0.1, 8)))
             local id = world.getBlockState(privateCrate.location - vec(0, 1, 0)).id
             pcall(function()
                 for i = 0, 40 do
-                    particles:newParticle("block " .. id, privateCrate.location + vec(0.5, 0, 0.5), vec(math.random() * 100 - 50, math.random() * 100 - 50, math.random() * 100 - 50))
+                    particles:newParticle("block " .. id, privateCrate.location + vec(0.5, 0, 0.5)):velocity(vec(math.random() - 0.5, math.random(), math.random() - 0.5) / 3)
                 end
             end)
+            if since == 100 then
+                local group = util.group()
+                group:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0, 8)))
+                models.world:addChild(group)
+                self.craters[{
+                    crater = CrateCrater:new{
+                        group = group
+                    },
+                    group = group
+                }] = true
+            end
             self.currentlyAnimatedCrates[pos] = nil
         else
             privateCrate.crateModel:matrix(
@@ -302,6 +348,21 @@ function CrateSpawner:tickNonHost()
 
     self.tankReachedCrate = {}
     self.tankReachedCrateAcknowledgement = {}
+
+    for crater in pairs(self.craters) do
+        if not crater.crater:tick() then
+            models.world:removeChild(crater.group)
+            self.craters[crater] = nil
+        end
+    end
+
+    for s, crate in pairs(self.currentCrates) do
+        if (world.getTime() > crate.spawned + 100) and math.random() > 0.8 then
+            particles:newParticle("happy_villager",
+            crate.location + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6) * 1.2 + vec(0.5, 0, 0.5)
+    ):velocity(0,0.02 + math.random() * 0.01,0)
+        end
+    end
 end
 
 

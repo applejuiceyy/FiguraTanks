@@ -8,7 +8,6 @@ end
 ---comment
 ---@param name string
 ---@param subclass table?
----@return {new:fun(...):any}
 local class = function (name, subclass)
     local obj = setmetatable({}, subclass or {})
     obj.class = obj

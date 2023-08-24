@@ -8,6 +8,8 @@ function TankModelController:init(opt)
     self.tank = opt.tank
     self.model = opt.model
 
+    self.oldHealth = self.tank.health
+
     self.oldvel = vec(0, 0, 0)
     self.oldTargetVelocity = vec(0, 0, 0)
 
@@ -41,6 +43,14 @@ function TankModelController:afterTankTick(happenings)
         if self.soundPower > 0 and (not self.tank.dead) then
             self:spawnTankEngineNoises()
         end
+        
+        if self.oldHealth > self.tank.health then
+            local d = (self.oldHealth - self.tank.health) / 50
+            sounds:playSound("entity.iron_golem.damage", self.tank.pos, d)
+            sounds:playSound("entity.iron_golem.repair", self.tank.pos, d, 0.6)
+        end
+
+        self.oldHealth = self.tank.health
     end
 end
 
@@ -123,17 +133,23 @@ function TankModelController:spawnTankEngineNoises()
     end
 end
 
+local function spawnAt(pos, vel)
+    local blockid = world.getBlockState(pos - vec(0, 0.1, 0)).id
+    pcall(function()
+        particles:newParticle("minecraft:block " .. blockid, pos):velocity(vel + vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) / 20):lifetime(math.random() * 100 + 200)
+    end)
+end
+
 function TankModelController:spawnDragParticles(happenings)
-    local wantsdifferential = (self.tank.vel - happenings.targetVelocity):length()
+    local lerpTarget = math.lerp(self.oldTargetVelocity, happenings.targetVelocity, client.getFrameTime());
+    local lerpVel = math.lerp(self.oldvel, self.tank.vel, client.getFrameTime())
+    local wantsdifferential = (lerpVel - lerpTarget):length()
     local offset = vectors.rotateAroundAxis(self.tank.angle, vec(0, 0, 0.5), vec(0, 1, 0))
     local offsetForwards = vectors.rotateAroundAxis(self.tank.angle, vec(0.8, 0, 0), vec(0, 1, 0))
-    local pos = self.tank.pos
+    local pos = math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime())
     if math.random() < wantsdifferential * 10 then
-        local blockid = world.getBlockState(pos - vec(0, 0.1, 0)).id
-        pcall(function()
-            particles:newParticle("minecraft:block " .. blockid, pos + offset + offsetForwards * (math.random() - 0.5), (self.tank.vel - happenings.targetVelocity) * wantsdifferential * 100)
-            particles:newParticle("minecraft:block " .. blockid, pos - offset + offsetForwards * (math.random() - 0.5), (self.tank.vel - happenings.targetVelocity) * wantsdifferential * 100)
-        end)
+        spawnAt(pos + offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+        spawnAt(pos - offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
     end
 end
 

@@ -54,7 +54,7 @@ function FrictionInstance:tankMoveVerticallyInvoked(a, b, c)
     if self.lifespan <= 0 then
         return a, b, c
     end
-    return world.newBlock("minecraft:dirt"):getFriction(), b, c
+    return a * 0.9, b, c
 end
 
 function FrictionInstance:tick()

@@ -9,8 +9,8 @@ local util               = require("tank.util")
 local CrateSpawner       = require("tank.state.CrateSpawner")
 local createPingChannel  = require("tank.state.createPingChannel")
 
-local State     = class("State")
 
+local State     = class("State")
 
 local loadTank
 
