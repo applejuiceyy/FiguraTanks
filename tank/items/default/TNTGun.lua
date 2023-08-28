@@ -1,6 +1,8 @@
 local class          = require("tank.class")
 local TNTGunInstance = require("tank.items.default.TNTGunInstance")
 local Bullet         = require("tank.items.default.Bullet")
+local settings       = require("tank.settings")
+
 
 
 local TNTGun = class("TNTGun")
@@ -24,10 +26,18 @@ function TNTGun:tick()
     local explosions = {}
     local hasExplosions = false
     for bullet in pairs(self.bullets) do
-        if bullet:tick() then
+        local hit, pos = bullet:tick()
+        if hit then
             explosions[bullet.pos] = true
             hasExplosions = true
             self.bullets[bullet] = nil
+            local damage = self.state.worldDamageDisplay:createDamageCreator(pos:floor(), 30):canPenetrateBlocks()
+            
+            if settings.bulletsCanBreakBlocks then
+                damage:canDestroyBlocks()
+            end
+
+            damage:apply()
         end
     end
     if hasExplosions then
@@ -57,7 +67,7 @@ function TNTGun:handleWeaponDamages(hits, tank)
         if v[TNTGun.explosionAvatarPath] ~= nil then
             for explosion in pairs(v[TNTGun.explosionAvatarPath]) do
                 local diff = explosion - middle
-                if diff:length() < 5 then
+                if diff:length() < 3 then
                     local damage = 5 * (5 - diff:length())
                     if player:getUUID() == uuid then
                         damage = damage / 2

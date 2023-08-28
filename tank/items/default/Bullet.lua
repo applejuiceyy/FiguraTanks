@@ -29,7 +29,7 @@ function Bullet:tick()
             self.pos = self.pos - self.vel / resolution
             particles:newParticle("minecraft:explosion", self.pos)
             sounds:playSound("minecraft:entity.generic.explode", self.pos, 0.5)
-            return true
+            return true, pos
         end
     end
     return false

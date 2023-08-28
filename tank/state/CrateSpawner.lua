@@ -1,7 +1,7 @@
 local class     = require("tank.class")
 local util      = require("tank.util")
 local collision = require("tank.collision")
-local CrateCrater = require("tank.model.CrateCrater")
+local settings    = require("tank.settings")
 
 local CrateSpawner     = class("CrateSpawner")
 
@@ -21,11 +21,23 @@ end
 
 CrateSpawner.requiredPings = {
     syncCrate = function(self, ...)
+        if not player:isLoaded() then
+            return
+        end
         self:syncCrate(...)
     end,
 
     deleteCrate = function(self, pos)
         self:deleteCrate(pos)
+    end,
+
+    unsupportedCrate = function(self, pos)
+        self:deleteCrate(pos)
+        for i = 0, 10 do
+            particles:newParticle("block barrel",
+                pos + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6) + vec(0.5, 0, 0.5)
+        )
+        end
     end,
 
     tankReachedCrateAcknowledgement = function (self, avatarId, pos)
@@ -88,9 +100,9 @@ function CrateSpawner:trySpawnCrate()
 
     local place = vec(x, y, z) + center
 
-
-
-    if not (world.getBlockState(place):isAir() and world.getBlockState(place - vec(0, 1, 0)):isFullCube()) then
+    local underPos = place - vec(0, 1, 0)
+    local under = world.getBlockState(place - vec(0, 1, 0))
+    if not (world.getBlockState(place):isAir() and collision.collidesWithBlock(under, vec(0.8, 1, 0.8) + underPos, vec(0.2, 0.9, 0.2) + underPos)) then
         return
     end
 
@@ -152,6 +164,8 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
 
     models.world:addChild(crate)
 
+    local creator = self.state.worldDamageDisplay:createDamageCreator(location - vec(0, 1, 0), 30)
+
 
     self.currentCrates[s] = {
         location = location,
@@ -159,7 +173,8 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
         groundModel = icon,
         crateModel = crate,
         spawned = validIn,
-        modelRotation = math.random() * 360
+        modelRotation = math.random() * 360,
+        damageCreator = creator
     }
 
     self.publicFacingCrates[s] = {
@@ -292,8 +307,16 @@ function CrateSpawner:applyEffect(owner, id)
 end
 
 function CrateSpawner:tick()
-    for i = 0, 10 do
-        self:trySpawnCrate()
+    if settings.spawnCrates then
+        for i = 0, 10 do
+            self:trySpawnCrate()
+        end
+    end
+
+    for s, crate in pairs(self.currentCrates) do
+        if not world.getBlockState(crate.location - vec(0, 1, 0)):isFullCube() or not world.getBlockState(crate.location):isAir() then
+            self.pings.unsupportedCrate(crate.location)
+        end
     end
 
     if self.state.load ~= nil then
@@ -317,15 +340,7 @@ function CrateSpawner:render()
                 end
             end)
             if since == 100 then
-                local group = util.group()
-                group:matrix(matrices.translate4(privateCrate.location * 16 + vec(8, 0, 8)))
-                models.world:addChild(group)
-                self.craters[{
-                    crater = CrateCrater:new{
-                        group = group
-                    },
-                    group = group
-                }] = true
+                privateCrate.damageCreator:apply()
             end
             self.currentlyAnimatedCrates[pos] = nil
         else

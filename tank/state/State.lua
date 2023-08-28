@@ -8,6 +8,8 @@ local HUD                = require("tank.model.HUD")
 local util               = require("tank.util")
 local CrateSpawner       = require("tank.state.CrateSpawner")
 local createPingChannel  = require("tank.state.createPingChannel")
+local WorldDamageDisplay  = require("tank.state.WorldDamageDisplay")
+local settings            = require("tank.settings")
 
 
 local State     = class("State")
@@ -32,6 +34,8 @@ function State:init()
         self
     )
 
+    self.worldDamageDisplay = WorldDamageDisplay:new(self)
+
     self.itemManagers = {}
 
     for _, path in pairs(listFiles("tank/items", true)) do
@@ -54,10 +58,22 @@ function State:init()
     self.syncQueueConsumer = function(what)
         table.insert(self.syncQueue, what)
     end
+
+    self.bulletDestroyBlocksWarning = 121
 end
 
 function State:tick()
+    if self.bulletDestroyBlocksWarning <= 120 then
+        local color = "ff0000"
+        if self.bulletDestroyBlocksWarning % 40 < 20 then
+            color = "ffffff"
+        end
+        host:setActionbar('{"text":"The tank can destroy blocks!", "color":"#' .. color .. '"}')
+        self.bulletDestroyBlocksWarning = self.bulletDestroyBlocksWarning + 1
+    end
+
     self.crateSpawner:tickNonHost()
+    self.worldDamageDisplay:tick()
     if host:isHost() then
         self.crateSpawner:tick()
     end
@@ -150,6 +166,9 @@ function State:isLoaded()
 end
 
 function State:loadTank()
+    if settings.bulletsCanBreakBlocks then
+        self.bulletDestroyBlocksWarning = 0
+    end
     loadTank()
     self.load.tank.pos = player:getPos()
     self.load.tank:flushLerps()
@@ -249,5 +268,6 @@ function pings.unfocusTank()
     end
 end
 
+_G.state = state
 
 return state

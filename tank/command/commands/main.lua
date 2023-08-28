@@ -177,7 +177,7 @@ local function getAutocomplete(context, pos)
                 return current, {}
             end
 
-            local suggestions = suggester.suggester._suggester()
+            local suggestions = suggester.suggester._suggester(context)
             
             local typed = string.sub(str, current, pos)
             local r = {}
@@ -201,7 +201,7 @@ local function getAutocomplete(context, pos)
 
     local accumulate = {}
     for _, child in ipairs(candidates) do
-        for _, suggestion in ipairs(child._suggester()) do
+        for _, suggestion in ipairs(child._suggester(context)) do
             table.insert(accumulate, suggestion)
         end
     end
