@@ -1,9 +1,5 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
-local CustomKeywords = require("tank.model.CustomKeywords")
-local TankModel      = require("tank.model.TankModel")
-local WorldSlice     = require("tank.model.WorldSlice")
-
 local CrateCompass = class("CrateCompass")
 
 function CrateCompass:init(opt)
@@ -21,7 +17,7 @@ function CrateCompass:update(pos)
                 local location = data.location
                 local conc
                 if self.dequeueing[str] == nil then
-                    local id = "gen-" .. math.random()
+                    local id = util.stringID()
                     local task = self.group:newBlock(id)
                         :block("redstone_block")
                     conc = {

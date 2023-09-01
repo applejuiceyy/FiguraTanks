@@ -4,17 +4,25 @@ local CustomKeywords = require("tank.model.CustomKeywords")
 local TankModel      = require("tank.model.TankModel")
 local WorldSlice     = require("tank.model.WorldSlice")
 local CrateCompass     = require("tank.model.CrateCompass")
+local EffectDisplay    = require("tank.model.EffectDisplay")
 
 local HUD = class("HUD")
 
 
 
 local function PositionSetter(x, y)
-    return function(_, m)
+    return function(m, arg)
         local size = client.getWindowSize()
         local scale = client.getGuiScale()
         m:setPos(-size.x * x / scale - m:getPivot().x, -size.y * y / scale - m:getPivot().y)
     end
+end
+
+local function CustomPosition(m, arg)
+    local size = client.getWindowSize()
+    local scale = client.getGuiScale()
+    local v = util.vecify(arg())
+    m:setPos(-size.x * v.x / scale - m:getPivot().x, -size.y * v.y / scale - m:getPivot().y)
 end
 
 function HUD:init(opt)
@@ -23,7 +31,8 @@ function HUD:init(opt)
     self.oldHealth = math.huge
 
     self.currentWeapon = nil
-    self.currentWeaponGroups = {}
+    self.currentWeaponIconGroups = {}
+    self.currentWeaponStatsGroups = {}
 
     self.antennaRot = 0
     self.previousAntennaRot = 0
@@ -52,7 +61,7 @@ function HUD:init(opt)
         group = self.backgroundPaperModelRoller,
         onBlock = function(group, block)
             for _, collision in ipairs(block:getOutlineShape()) do
-                group:newBlock("gen-" .. math.random())
+                group:newBlock(util.stringID())
                     :block("black_concrete")
                     :pos((collision[1] + block:getPos()) * 16 - vec(2, 2, 2))
                     :scale(collision[2] - collision[1] + vec(4, 4, 4) / 16)
@@ -67,59 +76,71 @@ function HUD:init(opt)
         group = self.compassGroup
     }
 
+
     self.previousPaperModelCurrentRotation = 0
     self.startShiftAnimationPaperModelCurrentRotation = 0
     self.paperModelCurrentRotation = 0
     self.paperModelCurrentRotationBelief = 0
 
-    self.keywords = CustomKeywords:new(models.models.hud, {
-        BottomLeftCorner = PositionSetter(1, 1),
-        BottomCenterCorner = PositionSetter(0.5, 1),
-        BottomRightCorner = PositionSetter(0, 1),
+    self.keywords = CustomKeywords:new(models.models.hud, util.injectGenericCustomKeywordsRegistry({
+        BottomLeftCorner = {},
+        BottomCenterCorner = {},
+        BottomRightCorner = {},
+        CenterLeftCorner = {},
+        CenterCenterCorner = {},
+        CenterRightCorner = {},
+        TopLeftCorner = {},
+        TopCenterCorner = {},
+        TopRightCorner = {},
+        Position = {},
+        EffectAnchor = {
+            injectedVariables = {
+                UPWARDS = vec(0, 0, 0),
+                DOWNWARDS = vec(0, 0, 0),
+                LEFTWARDS = vec(0, 0, 0),
+                RIGHTWARDS = vec(0, 0, 0),
 
-        CenterLeftCorner = PositionSetter(1, 0.5),
-        CenterCenterCorner = PositionSetter(0.5, 0.5),
-        CenterRightCorner = PositionSetter(0, 0.5),
+                totalEffects = 0,
+                currentEffectIndex = 0
+            }
+        },
+        FlashingHealthBar = {},
+        VelocityBar = {},
+        DashBar = {},
+        DecoAntenna = {},
+        RadarBobberBlack = {},
+        RadarBobberTransparent = {},
 
-        TopLeftCorner = PositionSetter(1, 0),
-        TopCenterCorner = PositionSetter(0.5, 0),
-        TopRightCorner = PositionSetter(0, 0),
+        WeaponIconAnchor = {},
+        WeaponStatsAnchor = {},
 
-        HealthBar = function (delta, m)
-            m:setScale(self.tank.health, 1, 1)
-        end,
+        SlotTexture = {}
+    }, {
+        tank = false
+    }))
 
-        FlashingHealthBar = function (delta, m)
-            m:setVisible(world.getTime() % 4 > 1 and (self.oldHealth > self.tank.health or self.tank.health < 50))
-            m:setScale(self.tank.health, 1, 1)
-        end,
+    self.currentEffectsGroups = {}
+    for model, args in self.keywords:iterate("EffectAnchor") do
+        self.currentEffectsGroups[model] = EffectDisplay:new{
+            tank = self.tank,
+            group = model,
+            positioner = function(i, t)
+                local l = util.vecify(args{
+                    totalEffects = t,
+                    currentEffectIndex = i,
+                    UPWARDS = vec(0, (i - 1) * 22, 0),
+                    DOWNWARDS = vec(0, (i - 1) * -22, 0),
+                    LEFTWARDS = vec((i - 1) * 22, 0, 0),
+                    RIGHTWARDS = vec((i - 1) * -22, 0, 0)
+                })
+                return l + model:getPivot()
+            end
+        }
+    end
 
-        VelocityBar = function (delta, m)
-            m:setScale(math.min(math.abs(self.tank.vel:length() * 100), 100), 1, 1)
-        end,
-
-        DashBar = function (delta, m)
-            m:setScale(self.tank.dash * 100, 1, 1)
-        end,
-
-        DecoAntenna = function (delta, m)
-            m:setRot(0, 0, math.lerp(self.previousAntennaRot, self.antennaRot, delta))
-        end,
-
-        RadarBobberBlack = function (delta, m)
-            local s = world.getTime(delta) / 50 % 1
-            m:setScale(s, s, 0)
-            m:setColor(1 - s, 1 - s, 1 - s)
-        end,
-
-        RadarBobberTransparent = function (delta, m)
-            local s = world.getTime(delta) / 50 % 1
-            m:setScale(s, s, 0)
-            m:setOpacity(1 - s)
-        end,
-
-        WeaponIcon = function() end
-    })
+    for model, args in self.keywords:iterate("SlotTexture") do
+        util.addSlotTexture(model)
+    end
 end
 
 function HUD:beforeTankTick(oldHappenings)
@@ -127,16 +148,53 @@ function HUD:beforeTankTick(oldHappenings)
     self.oldHealth = self.tank.health
 end
 function HUD:afterTankTick(happenings)
+
     self.paperModel:afterTankTick(happenings)
     if self.currentWeapon ~= self.tank.currentWeapon then
-        for group in pairs(self.currentWeaponGroups) do
-            group.parent:removeChild(group)
+        for group, data in pairs(self.currentWeaponIconGroups) do
+            util.callOn(data.lifecycle, "dispose")
+            group:removeChild(data.group)
         end
 
-        for model in self.keywords:iterate("WeaponIcon") do
-            self.currentWeaponGroup = self.tank.currentWeapon:generateHudGraphics()
-            model:addChild(self.currentWeaponGroup)
+        for group, data in pairs(self.currentWeaponStatsGroups) do
+            util.callOn(data.lifecycle, "dispose")
+            group:removeChild(data.group)
         end
+
+        for model in self.keywords:iterate("WeaponIconAnchor") do
+            local group = util.group()
+            local lifecycle = self.tank.currentWeapon:generateIconGraphics(group)
+            self.currentWeaponIconGroups[model] = {
+                group = group,
+                lifecycle = lifecycle
+            }
+            model:addChild(group)
+            group:setPos(model:getPivot())
+        end
+
+        for model, args in self.keywords:iterate("WeaponStatsAnchor") do
+            local group = util.group()
+            local lifecycle = self.tank.currentWeapon:generateHudInfoGraphics(group, util.vecify(args()))
+            self.currentWeaponStatsGroups[model] = {
+                group = group,
+                lifecycle = lifecycle
+            }
+            model:addChild(group)
+            group:setPos(model:getPivot())
+        end
+
+        self.currentWeapon = self.tank.currentWeapon
+    else
+        for group, data in pairs(self.currentWeaponIconGroups) do
+            util.callOn(data.lifecycle, "tick")
+        end
+        for group, data in pairs(self.currentWeaponStatsGroups) do
+            util.callOn(data.lifecycle, "tick")
+        end
+    end
+
+    for model, args in self.keywords:iterate("EffectAnchor") do
+        self.currentEffectsGroups[model]:tick()
     end
 
 
@@ -202,11 +260,68 @@ function HUD:render(happenings)
         matrices.translate4(math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime()) * 16)
     )]]
 
-    self.keywords:render(client.getFrameTime())
+    self.keywords:with(util.injectGenericCustomKeywordsExecution({
+        BottomLeftCorner = PositionSetter(1, 1),
+        BottomCenterCorner = PositionSetter(0.5, 1),
+        BottomRightCorner = PositionSetter(0, 1),
+
+        CenterLeftCorner = PositionSetter(1, 0.5),
+        CenterCenterCorner = PositionSetter(0.5, 0.5),
+        CenterRightCorner = PositionSetter(0, 0.5),
+
+        TopLeftCorner = PositionSetter(1, 0),
+        TopCenterCorner = PositionSetter(0.5, 0),
+        TopRightCorner = PositionSetter(0, 0),
+
+        Position = CustomPosition,
+
+        FlashingHealthBar = function (m, arg, delta)
+            m:setVisible(world.getTime() % 4 > 1 and (self.oldHealth > self.tank.health or self.tank.health < 50))
+            m:setScale(self.tank.health, 1, 1)
+        end,
+
+        VelocityBar = function (m, arg, delta)
+            m:setScale(math.min(math.abs(self.tank.vel:length() * 100), 100), 1, 1)
+        end,
+
+        DashBar = function (m, arg, delta)
+            m:setScale(self.tank.dash * 100, 1, 1)
+        end,
+
+        DecoAntenna = function (m, arg, delta)
+            m:setRot(0, 0, math.lerp(self.previousAntennaRot, self.antennaRot, delta))
+        end,
+
+        RadarBobberBlack = function (m, arg, delta)
+            local s = world.getTime(delta) / 50 % 1
+            m:setScale(s, s, 0)
+            m:setColor(1 - s, 1 - s, 1 - s)
+        end,
+
+        RadarBobberTransparent = function (m, arg, delta)
+            local s = world.getTime(delta) / 50 % 1
+            m:setScale(s, s, 0)
+            m:setOpacity(1 - s)
+        end,
+
+        If = function(model, args)
+            model:setVisible(args{tank = self.tank})
+        end,
+
+        Unless = function(model, args)
+            model:setVisible(not args{tank = self.tank})
+        end
+    }, {
+        tank = self.tank
+    }), client.getFrameTime())
 end
 
 function HUD:dispose()
-
+    models.models.hud:removeChild(self.paperModelRoller)
+    models.models.hud:removeChild(self.backgroundPaperModelRoller)
+    for model, display in pairs(self.currentEffectsGroups) do
+        display:dispose()
+    end
 end
 
 return HUD

@@ -202,7 +202,9 @@ function loadTank()
     end)
     state.itemManagers["default:tntgun"]:apply(state.load.tank)
     local tankModel = util.deepcopy(models.models.tank.body)
+    state.load.modelGroup = tankModel
     models.world:addChild(tankModel)
+
     state.load.tankModel = TankModel:new{
         tank = state.load.tank,
         model = tankModel
@@ -221,9 +223,12 @@ function loadTank()
         state.load.HUD = HUD:new{
             tank = state.load.tank
         }
+        
+        models.models.hud:setVisible(true)
     else
         state.load.tank.controller = keyboardController
     end
+
 end
 
 function pings.syncTank(...)
@@ -243,9 +248,13 @@ end
 function pings.removeTank()
     if state.load ~= nil then
         state.load.tankModel:dispose()
+        state.load.tablet:dispose()
         if host:isHost() then
             state.load.HUD:dispose()
+            state.load.tankController:dispose()
         end
+        models.world:removeChild(state.load.modelGroup)
+        models.models.hud:setVisible(false)
         state.load = nil
     end
 end

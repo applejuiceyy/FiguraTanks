@@ -183,11 +183,6 @@ function Tank:takeDamageFromBlocks()
     local fluid = getFluid(world.getBlockState(self.pos), self.pos.y - math.floor(self.pos.y))
     if includes(fluid, "c:water") then
         self.vel = self.vel * 0.4
-
-        if self.vel:length() > 0 then
-            particles:addParticle("minecraft:bubble", self.pos + vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5))
-        end
-
         self.health = self.health - 1
         self.fire = math.max(self.fire - 10, -1)
     elseif includes(fluid, "c:lava") then
@@ -260,7 +255,6 @@ function Tank:tick()
 
 
     if not self.dead then
-
         if self.controller.forwards then
             targetVelocity = targetVelocity + vectors.rotateAroundAxis(self.angle, vec(0.2, 0, 0), vec(0, 1, 0))
         end
@@ -308,6 +302,10 @@ function Tank:tick()
     if speedMultiplier > 1 then
         targetVelocity = targetVelocity * speedMultiplier
         speedMultiplier = 1
+    end
+
+    if self.health < 10 then
+        targetVelocity = targetVelocity * (self.health / 20 + 0.5)
     end
 
     if self.dashing then

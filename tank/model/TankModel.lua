@@ -1,5 +1,8 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
+local EffectDisplay = require("tank.model.EffectDisplay")
+local settings      = require("tank.settings")
+local TankRetexturer= require("tank.model.TankRetexturer")
 
 local TankModelController = class("TankModelController")
 
@@ -23,7 +26,23 @@ function TankModelController:init(opt)
     self.model.nozzle:setVisible(true)
     self.model.tracks:setVisible(true)
 
+    self.ratank = self.model:newItem("e"):item('minecraft:player_head{SkullOwner:{Id:[I;-821169205,-1606269462,-2074908078,-1417990738],Properties:{textures:[{Value:"eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzhkNmMzNDk5ZGRkNzgxN2NiMWQ3NzRhM2Q2NGIzMThkZWVlNWY3Zjc4NzcwNWZhNGEwOGRkMDkzYjUzYWIxMiJ9fX0="}]}}}'):setPos(0, 16, 0):setScale(1,1,1):setRot(0,90,0)
+    self.ratank:setVisible(settings.ratank)
     self.model.Camera.health.health:setPrimaryRenderType("EMISSIVE_SOLID")
+
+
+    local group = util.group():setPos(0, 30, 0):setScale(0.6, 0.6, 0.6)
+    self.model.Camera:addChild(group)
+    
+    self.effectDisplay = EffectDisplay:new{
+        tank = opt.tank,
+        group = group,
+        positioner = function(i, total)
+            return vec(((i - 1) - (total - 1) / 2) * 22, 0, 0)
+        end
+    }
+
+    self.retexturer = TankRetexturer:new(self.model)
 end
 
 function TankModelController:beforeTankTick(oldHappenings)
@@ -43,15 +62,41 @@ function TankModelController:afterTankTick(happenings)
         if self.soundPower > 0 and (not self.tank.dead) then
             self:spawnTankEngineNoises()
         end
+
+        self.model:setLight(world.getBlockLightLevel(self.tank.pos), world.getSkyLightLevel(self.tank.pos))
         
         if self.oldHealth > self.tank.health then
+            if self.tank.health <= 0 then
+                particles["explosion"]
+                    :pos(self.tank.pos)
+                    :spawn()
+            end
             local d = (self.oldHealth - self.tank.health) / 50
-            sounds:playSound("entity.iron_golem.damage", self.tank.pos, d)
-            sounds:playSound("entity.iron_golem.repair", self.tank.pos, d, 0.6)
+            if settings.tankMakesSound then
+                sounds:playSound("entity.iron_golem.damage", self.tank.pos, d)
+                sounds:playSound("entity.iron_golem.repair", self.tank.pos, d, 0.6)
+            end
         end
 
         self.oldHealth = self.tank.health
     end
+
+    if math.random() > self.tank.health / 100 then
+        particles["smoke"]
+            :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.4, 0), vec(0, 1, 0)) + self.tank.pos)
+            :velocity(vec(0, 0.01, 0) + util.unitRandom() / 100)
+            :spawn()
+
+        if math.random() > self.tank.health / 30 then
+            particles["flame"]
+                :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.4, 0), vec(0, 1, 0)) + self.tank.pos)
+                :velocity(vec(0, 0.02, 0) + util.unitRandom() / 100)
+                :spawn()
+        end
+    end
+
+    self.effectDisplay:tick()
+    self.retexturer:setHealthPercentage(self.tank.health / 100)
 end
 
 function TankModelController:render(happenings)
@@ -68,12 +113,17 @@ function TankModelController:render(happenings)
 
     local treshhold = math.max(6 - happenings.targetVelocity:length() * 20, 1)
 
+    local rotate = vec(0, 0, 0)
+    if settings.tankRotato then
+        rotate = vec(0, world.getTime(delta) * 100, 0)
+    end
     self.model:setMatrix(
         util.transform(
             matrices.yRotation4(180),
             matrices.zRotation4((rotatedVelocity.x + rotatedVelocity.y * 2) * E),
-            matrices.xRotation4(rotatedVelocity.z * E * 4 + (self.stress / treshhold - math.pow(self.stress / treshhold, 2))),
+            matrices.xRotation4(rotatedVelocity.z * E * 4 + (self.stress / treshhold - math.pow(self.stress / treshhold, 2)) * (2 - self.tank.health / 100)),
             matrices.yRotation4(lerpAngle),
+            matrices.rotation4(rotate),
             matrices.translate4((lerpPos + vec(0, math.abs(rotatedVelocity.x) / 4, 0)) * 16)
         )
     )
@@ -99,19 +149,21 @@ function TankModelController:spawnTankIgnitionSound(happenings)
         if self.stress > currentTreshhold then
             self.stress = 0
         end
-        table.insert(self.sounds, sounds["entity.iron_golem.repair"]
-            :pos(self.tank.pos)
-            :volume((0.06 + happenings.targetVelocity:length() / 20) * self.soundPower)
-            :pitch(0.17 + happenings.targetVelocity:length() / 100)
-            :subtitle()
-            :play()
-        )
+        if settings.tankMakesSound then
+            table.insert(self.sounds, sounds["entity.iron_golem.repair"]
+                :pos(self.tank.pos)
+                :volume((0.06 + happenings.targetVelocity:length() / 20) * self.soundPower)
+                :pitch(0.17 + happenings.targetVelocity:length() / 100)
+                :subtitle()
+                :play()
+            )
+        end
 
         particles["smoke"]
-        :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.2, -0.3), vec(0, 1, 0)) + self.tank.pos)
-        :velocity(vectors.rotateAroundAxis(self.tank.angle, vec(-0.05, 0, 0), vec(0, 1, 0)))
-        :scale(0.3, 0.3, 0.3)
-        :spawn()
+            :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.2, -0.3), vec(0, 1, 0)) + self.tank.pos)
+            :velocity(vectors.rotateAroundAxis(self.tank.angle, vec(-0.05, 0, 0), vec(0, 1, 0)))
+            :scale(0.3, 0.3, 0.3)
+            :spawn()
     end
 
     self.oldMonitor = time
@@ -119,14 +171,15 @@ end
 
 function TankModelController:spawnTankEngineNoises()
 
-    
-    table.insert(self.sounds, sounds["entity.iron_golem.death"]
-        :pos(self.tank.pos)
-        :volume(0.01 * self.soundPower)
-        :pitch(0.8)
-        :subtitle()
-        :play()
-    )
+    if settings.tankMakesSound then
+        table.insert(self.sounds, sounds["entity.iron_golem.death"]
+            :pos(self.tank.pos)
+            :volume(0.01 * self.soundPower)
+            :pitch(0.8)
+            :subtitle()
+            :play()
+        )
+    end
 
     while #self.sounds > 8 do
         table.remove(self.sounds, 1):stop()
@@ -134,30 +187,28 @@ function TankModelController:spawnTankEngineNoises()
 end
 
 local function spawnAt(pos, vel)
-    local blockid = world.getBlockState(pos - vec(0, 0.1, 0)).id
+    local blockid = world.getBlockState(pos - vec(0, 0.01, 0)).id
     pcall(function()
         particles:newParticle("minecraft:block " .. blockid, pos):velocity(vel + vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) / 20):lifetime(math.random() * 100 + 200)
     end)
 end
 
 function TankModelController:spawnDragParticles(happenings)
-    local lerpTarget = math.lerp(self.oldTargetVelocity, happenings.targetVelocity, client.getFrameTime());
-    local lerpVel = math.lerp(self.oldvel, self.tank.vel, client.getFrameTime())
-    local wantsdifferential = (lerpVel - lerpTarget):length()
-    local offset = vectors.rotateAroundAxis(self.tank.angle, vec(0, 0, 0.5), vec(0, 1, 0))
-    local offsetForwards = vectors.rotateAroundAxis(self.tank.angle, vec(0.8, 0, 0), vec(0, 1, 0))
-    local pos = math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime())
-    if math.random() < wantsdifferential * 10 then
-        spawnAt(pos + offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
-        spawnAt(pos - offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+    if happenings.ground ~= nil then
+        local lerpTarget = math.lerp(self.oldTargetVelocity, happenings.targetVelocity, client.getFrameTime());
+        local lerpVel = math.lerp(self.oldvel, self.tank.vel, client.getFrameTime())
+        local wantsdifferential = (lerpVel - lerpTarget):length()
+        local offset = vectors.rotateAroundAxis(self.tank.angle, vec(0, 0, 0.5), vec(0, 1, 0))
+        local offsetForwards = vectors.rotateAroundAxis(self.tank.angle, vec(0.8, 0, 0), vec(0, 1, 0))
+        local pos = math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime())
+        if math.random() < wantsdifferential * 10 then
+            spawnAt(pos + offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+            spawnAt(pos - offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+        end
     end
 end
 
 function TankModelController:dispose()
-    --[[models.models.tank:setVisible(false)
-    models.models.tank.World.body.hull:setVisible(false)
-    models.models.tank.World.body.nozzle:setVisible(false)
-    models.models.tank.World.body.tracks:setVisible(false)]]
 end
 
 return TankModelController

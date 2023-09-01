@@ -8,8 +8,6 @@ function Bullet:init(pos, vel, times)
     self.vel = vel
 
     self.times = times
-
-    self.id = math.random()
 end
 
 function Bullet:render(delta)

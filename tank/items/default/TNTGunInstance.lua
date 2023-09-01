@@ -24,21 +24,24 @@ function TNTGunInstance:populateSyncQueue()
     -- no need: already comes by default
 end
 
-function TNTGunInstance:generateHudGraphics()
-    local group = util.group()
-    local rt = group:newBlock("e")
-    rt:setBlock("tnt")
-    rt:setMatrix(util.transform(
+function TNTGunInstance:generateIconGraphics(group)
+    group:newBlock("ee"):setBlock("tnt"):setMatrix(util.transform(
+        matrices.translate4(-8, -8, -8),
         matrices.rotation4(0, 45, 0),
         matrices.rotation4(-30, 0, 0),
-        matrices.scale4(1, 1, 0.01)
+        matrices.scale4(0.6, 0.6, 0.001)
     ))
-    return group
 end
 
-function TNTGunInstance:generateWorldGraphics()
-    
+function TNTGunInstance:generateHudInfoGraphics(group, constraints)
+    local task = group:newBlock("ee"):setBlock("yellow_concrete"):setScale(constraints.xy_ / 16)
+    return {
+        tick = function()
+            task
+            :setPos(0, (constraints.y / 2 - 2), 0)
+            :setScale(constraints.x / 16 * self.charge, 4 / 16, 1)
+        end
+    }
 end
-
 
 return TNTGunInstance

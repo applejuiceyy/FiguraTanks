@@ -1,10 +1,10 @@
-local class          = require("tank.class")
-local util        = require("tank.util")
+local class             = require("tank.class")
+local util              = require("tank.util")
 
 
-local Speed = class("Speed")
-local SpeedInstance = class("SpeedInstance")
-
+local Speed             = class("Speed")
+local SpeedInstance     = class("SpeedInstance")
+local SpeedInstanceIcon = class("SpeedInstanceIcon")
 
 Speed.name = "default:speed"
 Speed.requiredPings = {
@@ -15,6 +15,7 @@ Speed.requiredPings = {
     end
 }
 
+local texture = textures:fromVanilla(Speed.name .. "--speed", "textures/mob_effect/speed.png")
 
 function Speed:init(pings, state)
     self.pings = pings
@@ -24,22 +25,15 @@ end
 function Speed:tick() end
 
 function Speed:apply(tank)
-    self.pings.speed(200, math.random())
+    self.pings.speed(200, util.intID())
 end
 
 function Speed:handleWeaponDamages(hits, tank)
 
 end
 
-function Speed:generateIconGraphics()
-    local group = util.group()
-    local rt = group:newBlock("e")
-    rt:setBlock("red_concrete")
-    rt:setMatrix(util.transform(
-        matrices.scale4(0.25, 1, 0.01),
-        matrices.translate4(-0.125 * 16, -8, 0)
-    ))
-    return group
+function Speed:generateIconGraphics(group)
+    group:newSprite("e"):texture(texture):pos(8, 8, 0):setRenderType("TRANSLUCENT_CULL")
 end
 
 
@@ -70,7 +64,15 @@ function SpeedInstance:populateSyncQueue(consumer)
     end)
 end
 
-
+function SpeedInstance:generateIconGraphics(group)
+    group:newSprite("e"):texture(texture):pos(9, 9, 0):setRenderType("TRANSLUCENT_CULL")
+    local bar = group:newBlock("bar"):block("redstone_block"):setPos(-8, -8, 0.5)
+    return {
+        tick = function()
+            bar:setScale(1, self.lifespan / 200, 0.01)
+        end
+    }
+end
 
 
 return Speed

@@ -7,6 +7,51 @@ local BlockDamage        = class("BlockDamage")
 
 
 local blockstateCache = {}
+local damageTextures = {}
+
+
+for i = 0, 9 do
+    table.insert(damageTextures, textures:fromVanilla("block-breaking-" .. i, "minecraft:textures/block/destroy_stage_" .. math.floor(i) .. ".png"))
+end
+
+local function graduallyConvertTextures()
+    local currentTexture = 1
+    local currentX = 0
+    local currentY = 0
+
+    return function()
+        currentX = currentX + 1
+        if currentX >= 16 then
+            currentX = 0
+            currentY = currentY + 1
+            if currentY >= 16 then
+                currentY = 0
+                damageTextures[currentTexture]:update()
+                currentTexture = currentTexture + 1
+                if currentTexture > #damageTextures then
+                    return true
+                end
+            end
+        end
+        local texture = damageTextures[currentTexture]
+        local pixel = texture:getPixel(currentX, currentY)
+        texture:setPixel(currentX, currentY, vec(0, 0, 0, (1 - (pixel.x + pixel.y + pixel.z) / 3)))
+    end
+end
+
+local task = graduallyConvertTextures()
+
+events.TICK:register(function()
+    if task() then
+        return events.TICK:remove("convert-textures")
+    end
+    if task() then
+        return events.TICK:remove("convert-textures")
+    end
+    if task() then
+        return events.TICK:remove("convert-textures")
+    end
+end, "convert-textures")
 
 local function destroyBlock(pos)
     host:sendChatCommand("setblock " .. pos.x .. " " .. pos.y .. " " .. pos.z .. " air destroy")
@@ -235,7 +280,7 @@ function BlockDamage:addTask(matrix, highShape, lowShape, cullingOrder)
         group = self.cullGroups[cullingOrder]
     end
 
-    local task = group:newSprite("gen-" .. math.random())
+    local task = group:newSprite(util.stringID())
         :matrix(util.transform(matrices.scale4((highShape - lowShape).xy_), matrices.translate4(-lowShape.xy_ * 16), matrix, matrices.translate4(-cullingOffset[cullingOrder])))
         :setRenderType("TRANSLUCENT_CULL")
 
@@ -252,7 +297,7 @@ function BlockDamage:setDamage(stage)
     for _, tasks in pairs(self.tasksPerCull) do
         for task, shape in pairs(tasks) do
             local p = (shape[1] - shape[2]) * 16
-            task:texture("minecraft:textures/block/destroy_stage_" .. math.floor(stage) .. ".png", 16, 16)
+            task:texture(damageTextures[math.floor(stage) + 1])
                     :uv(shape[2])
                     :region(p)
         end

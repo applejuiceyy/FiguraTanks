@@ -49,6 +49,10 @@ local function traverseSet(name, obj, value)
     end
 end
 
+function pings.emitSettingsChange(path, value)
+    traverseSet(path, settings, value)
+end
+
 return command.withPrefix(">", vec(0.3, 0.6, 0.9))
 :addHelp()
 :append(
@@ -101,7 +105,7 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
                     return {}
                 end)
                 :executes(function(ctx)
-                    traverseSet(ctx.args.name, settings, load("return " .. ctx.args.value)())
+                    pings.emitSettingsChange(ctx.args.name, settings, load("return " .. ctx.args.value)())
                 end)
             )
         )

@@ -128,7 +128,9 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
         return
     end
     local kind = cratesIndexed[kindIndex]
-    local icon = self.state.itemManagers[kind]:generateIconGraphics()
+
+    local icon = util.group()
+    self.state.itemManagers[kind]:generateIconGraphics(icon)
     models.world:addChild(icon)
     icon:matrix(
         util.transform(
@@ -144,6 +146,18 @@ function CrateSpawner:syncCrate(location, kindIndex, validIn)
         matrices.translate4(-8, 0, -8),
         matrices.scale4(0.6, 0.8, 0.6)
     ))
+    local group = util.group():setScale(0.5, 0.5, 0.5):setPos(0, 0.4 * 16, 0.3 * 16 + 0.01):setRot(0, 180, 0)
+    self.state.itemManagers[kind]:generateIconGraphics(group)
+    crate:addChild(group)
+    local group = util.group():setScale(0.5, 0.5, 0.5):setPos(0, 0.4 * 16, -0.3 * 16 - 0.01):setRot(0, 0, 0)
+    self.state.itemManagers[kind]:generateIconGraphics(group)
+    crate:addChild(group)
+    local group = util.group():setScale(0.5, 0.5, 0.5):setPos(0.3 * 16 + 0.01, 0.4 * 16, 0):setRot(0, 270, 0)
+    self.state.itemManagers[kind]:generateIconGraphics(group)
+    crate:addChild(group)
+    local group = util.group():setScale(0.5, 0.5, 0.5):setPos(-0.3 * 16 - 0.01, 0.4 * 16, 0):setRot(0, 90, 0)
+    self.state.itemManagers[kind]:generateIconGraphics(group)
+    crate:addChild(group)
 
     local overTextGroup = util.group()
     overTextGroup:setParentType("CAMERA")

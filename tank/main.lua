@@ -1,9 +1,11 @@
 local State = require "tank.state.State"
+local util  = require "tank.util"
 
 models.world:setParentType("WORLD")
 
 models.models.tank:setVisible(false)
 models.models.hud:setParentType("HUD")
+models.models.hud:setVisible(false)
 models.models.tablet:setVisible(false)
 models.models.tablet:setPrimaryTexture("SKIN")
 models.models.tablet.Tablet:setPrimaryTexture("PRIMARY")

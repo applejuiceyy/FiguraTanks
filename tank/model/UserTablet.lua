@@ -106,7 +106,7 @@ function UserTablet:render(happenings)
 end
 
 function UserTablet:dispose()
-
+    self:setEquipped(false)
 end
 
 return UserTablet

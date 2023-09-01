@@ -1,4 +1,8 @@
 return {
     bulletsCanBreakBlocks = false,
-    spawnCrates = true
+    spawnCrates = false,
+    tankMakesSound = true,
+
+    ratank = false,
+    tankRotato = false
 }

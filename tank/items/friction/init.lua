@@ -24,22 +24,27 @@ end
 function Friction:tick() end
 
 function Friction:apply(tank)
-    self.pings.friction(1000, math.random())
+    self.pings.friction(1000, util.intID())
 end
 
 function Friction:handleWeaponDamages(hits, tank)
 
 end
 
-function Friction:generateIconGraphics()
-    local group = util.group()
-    local rt = group:newBlock("e")
-    rt:setBlock("red_concrete")
-    rt:setMatrix(util.transform(
-        matrices.scale4(0.25, 1, 0.01),
-        matrices.translate4(-0.125 * 16, -8, 0)
+function Friction:generateIconGraphics(group)
+    group:newBlock("e"):setBlock("ice"):setMatrix(util.transform(
+        matrices.translate4(-8, -8, -8),
+        matrices.rotation4(0, 45, 0),
+        matrices.rotation4(30, 0, 0),
+        matrices.scale4(0.6, 0.6, 0.001)
     ))
-    return group
+    group:newBlock("ee"):setBlock("coal_block"):setMatrix(util.transform(
+        matrices.translate4(-8, -8, -8),
+        matrices.rotation4(0, 45, 0),
+        matrices.rotation4(30, 0, 0),
+        matrices.scale4(0.4, 0.4, 0.001),
+        matrices.translate4(0, 0, -0.02)
+    ))
 end
 
 
@@ -54,7 +59,8 @@ function FrictionInstance:tankMoveVerticallyInvoked(a, b, c)
     if self.lifespan <= 0 then
         return a, b, c
     end
-    return a * 0.9, b, c
+
+    return a * 0.9, b * (math.max(a - 0.8, 0) * 2 + 1), c
 end
 
 function FrictionInstance:tick()
@@ -70,6 +76,15 @@ function FrictionInstance:populateSyncQueue(consumer)
     end)
 end
 
+function FrictionInstance:generateIconGraphics(group)
+    self.owner:generateIconGraphics(group)
+    local bar = group:newBlock("bar"):block("redstone_block"):setPos(-8, -8, 0.5)
+    return {
+        tick = function()
+            bar:setScale(1, self.lifespan / 1000, 0.01)
+        end
+    }
+end
 
 
 

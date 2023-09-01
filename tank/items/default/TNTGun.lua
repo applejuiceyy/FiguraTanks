@@ -89,8 +89,13 @@ function TNTGun:_shootAfterPing(tank, pos, vel)
     tank.vel = tank.vel - vel * 0.02
 end
 
-function TNTGun:generateIconGraphics()
-    
+function TNTGun:generateIconGraphics(group)
+    group:newBlock("ee"):setBlock("tnt"):setMatrix(util.transform(
+        matrices.translate4(-8, -8, -8),
+        matrices.rotation4(0, 45, 0),
+        matrices.rotation4(30, 0, 0),
+        matrices.scale4(0.6, 0.6, 0.001)
+    ))
 end
 
 

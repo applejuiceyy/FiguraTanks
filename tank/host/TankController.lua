@@ -2,6 +2,7 @@ local class       = require("tank.class")
 local util        = require("tank.util")
 local keyboardController = require("tank.host.controller.keyboardController")
 local noopController = require("tank.host.controller.noopController")
+local settings       = require("tank.settings")
 
 local TankModelController = class("TankModelController")
 
@@ -58,10 +59,14 @@ function TankModelController:render()
     local e =not (renderer:isFirstPerson() and self.focusingTank)
     self.tankModel.model.nozzle:setVisible(e)
     self.tankModel.model.Camera:setVisible(e)
+    self.tankModel.ratank:setVisible(e and settings.ratank)
 end
 
 function TankModelController:dispose()
     self:unfocusTank()
+    renderer:setCameraRot(nil, nil, nil)
+    renderer:setCameraPivot(nil, nil, nil)
+    renderer:setCameraRot(nil, nil, nil)
 end
 
 function TankModelController:unfocusTank()

@@ -57,7 +57,7 @@ function WorldSlice:update(newPosition)
                     if self.opt.onBlock ~= nil then
                         self.opt.onBlock(self.ugroup, blockstate)
                     else
-                        local task = self.ugroup:newBlock("gen-" .. math.random())
+                        local task = self.ugroup:newBlock(util.stringID())
                             :block(blockstate)
                             :pos(cannonical * 16)
 

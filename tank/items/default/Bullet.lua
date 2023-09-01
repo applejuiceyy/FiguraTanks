@@ -1,5 +1,6 @@
 local class          = require("tank.class")
 local collision      = require("tank.collision")
+local util           = require("tank.util")
 
 local Bullet = class("Bullet")
 
@@ -9,7 +10,7 @@ function Bullet:init(pos, vel, onExplosion)
 
     self.onExplosion = onExplosion
 
-    self.id = math.random()
+    self.id = util.intID()
 end
 
 function Bullet:render(delta)
