@@ -21,6 +21,7 @@ function Friction:init(pings, state)
     self.state = state
 end
 
+function Friction:render() end
 function Friction:tick() end
 
 function Friction:apply(tank)

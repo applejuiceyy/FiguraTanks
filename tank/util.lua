@@ -158,6 +158,11 @@ util = {
                 args(setmetatable({model = model, self = model}, {__index = variables}))
             end,
         }})
+    end,
+
+    pitchYawToUnitVector = function(thing)
+        local ret = vectors.rotateAroundAxis(-thing.y, vec(1, 0, 0), vec(0, 0, 1))
+        return vectors.rotateAroundAxis(thing.x, ret, vec(0, 1, 0))
     end
 }
 

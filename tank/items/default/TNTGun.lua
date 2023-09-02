@@ -13,6 +13,12 @@ TNTGun.explosionAvatarPath = "__FiguraTanks_" .. TNTGun.name .. "_explosion"
 TNTGun.requiredPings = {
     shoot = function(self, tank, pos, vel)
         self:_shootAfterPing(tank, pos, vel)
+    end,
+
+    equip = function(self, tank)
+        if tank.currentWeapon == nil or tank.currentWeapon.class ~= TNTGunInstance then
+            return self:_applyAfterPing(tank)
+        end
     end
 }
 
@@ -20,6 +26,14 @@ function TNTGun:init(pings, state)
     self.pings = pings
     self.state = state
     self.bullets = {}
+end
+
+function TNTGun:_applyAfterPing(tank)
+    tank:setWeapon(TNTGunInstance:new(self, tank))
+end
+
+function TNTGun:render()
+    
 end
 
 function TNTGun:tick()

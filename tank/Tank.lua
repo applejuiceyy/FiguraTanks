@@ -116,7 +116,7 @@ end
 
 function Tank:setWeapon(gunFactory)
     if self.currentWeapon ~= nil then
-        self.currentWeapon:dispose()
+        self.currentWeapon:tankWeaponDispose()
     end
     self.currentWeapon = gunFactory
 end
@@ -217,42 +217,10 @@ function Tank:takeVoidDamage()
     end
 end
 
-function Tank:invokeInterested(name, ...)
-    local stuff = {...}
-    if self.currentWeapon ~= nil and self.currentWeapon["tank" .. name .. "Invoked"] ~= nil then
-        stuff = {self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, table.unpack(stuff))}
-    end
-    for _, effect in pairs(self.effects) do
-        if effect["tank" .. name .. "Invoked"] ~= nil then
-            stuff = {effect["tank" .. name .. "Invoked"](effect, table.unpack(stuff))}
-        end
-    end
-
-    return table.unpack(stuff)
-end
-
-function Tank:tick()
-    self:flushLerps()
-
-    self.charge = math.min(self.charge + 0.1, 1)
-
-
-    local hits = self:handleWeaponDamages()
-    self.vel.y = self.vel.y - 0.05
-    local friction, speedMultiplier, ground = self:moveVertically()
-
-    self:takeDamageFromBlocks()
-    self:takeVoidDamage()
-    self:avoidSuffocation()
-
-    if self.dashing then
-        speedMultiplier = speedMultiplier * (self.dash * 5 + 1)
-    end
-
+function Tank:fetchControls()
     local targetVelocity = vec(0, 0, 0)
     local targetAngleMomentum = 0
     local nozzleMomentum = vec(0, 0)
-
 
     if not self.dead then
         if self.controller.forwards then
@@ -299,6 +267,44 @@ function Tank:tick()
         end
     end
 
+    return self:invokeInterested("FetchControls", targetVelocity, targetAngleMomentum, nozzleMomentum)
+end
+
+function Tank:invokeInterested(name, ...)
+    local stuff = {...}
+    if self.currentWeapon ~= nil and self.currentWeapon["tank" .. name .. "Invoked"] ~= nil then
+        stuff = {self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, table.unpack(stuff))}
+    end
+    for _, effect in pairs(self.effects) do
+        if effect["tank" .. name .. "Invoked"] ~= nil then
+            stuff = {effect["tank" .. name .. "Invoked"](effect, table.unpack(stuff))}
+        end
+    end
+
+    return table.unpack(stuff)
+end
+
+function Tank:tick()
+    self:flushLerps()
+
+    self.charge = math.min(self.charge + 0.1, 1)
+
+
+    local hits = self:handleWeaponDamages()
+    self.vel.y = self.vel.y - 0.05
+    local friction, speedMultiplier, ground = self:moveVertically()
+
+    self:takeDamageFromBlocks()
+    self:takeVoidDamage()
+    self:avoidSuffocation()
+
+    if self.dashing then
+        speedMultiplier = speedMultiplier * (self.dash * 5 + 1)
+    end
+
+    local targetVelocity, targetAngleMomentum, nozzleMomentum = self:fetchControls()
+
+
     if speedMultiplier > 1 then
         targetVelocity = targetVelocity * speedMultiplier
         speedMultiplier = 1
@@ -318,7 +324,14 @@ function Tank:tick()
     end
     self.dash = math.clamp(self.dash, 0, 1)
 
-    self.vel.x_z = math.lerp(targetVelocity * speedMultiplier, self.vel, friction)
+    local velocity = self.vel:length()
+    friction = friction * 0.98
+    local inverseFriction = 1 - friction
+    inverseFriction = inverseFriction / math.pow(velocity + 1, 2)
+    friction = 1 - inverseFriction
+    local onlyFriction = math.lerp(targetVelocity * speedMultiplier, self.vel, friction)
+    self.vel.x_z = onlyFriction
+
     self:moveHorizontally()
 
     self.anglevel = math.lerp(targetAngleMomentum * speedMultiplier, self.anglevel, friction)

@@ -11,6 +11,9 @@ function TankModelController:init(opt)
     self.tank = opt.tank
     self.model = opt.model
 
+    self.currentWeapon = nil
+    self.currentWeaponLifecycle = nil
+
     self.oldHealth = self.tank.health
 
     self.oldvel = vec(0, 0, 0)
@@ -81,6 +84,14 @@ function TankModelController:afterTankTick(happenings)
         self.oldHealth = self.tank.health
     end
 
+    if self.currentWeapon ~= self.tank.currentWeapon then
+        util.callOn(self.currentWeaponLifecycle, "dispose")
+        self.currentWeaponLifecycle = self.tank.currentWeapon:generateTankModelGraphics(self)
+        self.currentWeapon = self.tank.currentWeapon
+    else
+        util.callOn(self.currentWeaponLifecycle, "tick")
+    end
+
     if math.random() > self.tank.health / 100 then
         particles["smoke"]
             :pos(vectors.rotateAroundAxis(self.tank.angle, vec(-0.4, 0.4, 0), vec(0, 1, 0)) + self.tank.pos)
@@ -136,6 +147,8 @@ function TankModelController:render(happenings)
         self:spawnDragParticles(happenings)
         self:spawnTankIgnitionSound(happenings)
     end
+
+    util.callOn(self.currentWeaponLifecycle, "render")
 end
 
 function TankModelController:spawnTankIgnitionSound(happenings)

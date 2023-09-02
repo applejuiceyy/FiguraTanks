@@ -21,6 +21,10 @@ function MassTNTGun:init(pings, state)
     self.queuedRemoval = {}
 end
 
+function MassTNTGun:render()
+
+end
+
 function MassTNTGun:tick()
     local explosions = {}
     local hasExplosions = false

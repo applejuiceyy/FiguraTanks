@@ -22,6 +22,7 @@ function Speed:init(pings, state)
     self.state = state
 end
 
+function Speed:render() end
 function Speed:tick() end
 
 function Speed:apply(tank)

@@ -16,18 +16,20 @@ local State     = class("State")
 
 local loadTank
 
+local pingChannelConverters = {}
+
 function State:init()
     self.load = nil
     self.syncTime = 100
 
-    self.tabletPingChannel = createPingChannel("tablet", UserTablet.requiredPings, function (_function, ...)
+    self.tabletPingChannel = createPingChannel("tablet", UserTablet.requiredPings, pingChannelConverters, function (_function, ...)
         if self.load ~= nil then
             _function(self.load.tablet, ...)
         end
     end)
 
     self.crateSpawner = CrateSpawner:new(
-        createPingChannel("create-spawner", CrateSpawner.requiredPings, function(_function, ...)
+        createPingChannel("create-spawner", CrateSpawner.requiredPings, pingChannelConverters, function(_function, ...)
             _function(self.crateSpawner, ...)
         end),
 
@@ -43,7 +45,7 @@ function State:init()
             local manager = require(path)
             local name = manager.name
 
-            local transformedPings = createPingChannel("manager-" .. manager.name, manager.requiredPings, function(_function, ...)
+            local transformedPings = createPingChannel("manager-" .. manager.name, manager.requiredPings, pingChannelConverters, function(_function, ...)
                 if self.load ~= nil then
                     _function(self.itemManagers[name], self.load.tank, ...)
                 end
@@ -92,6 +94,11 @@ function State:tick()
         if host:isHost() then
             self.load.HUD:afterTankTick(self.load.happenings)
         end
+
+        local highCollisionShape, lowCollisionShape = self.load.tank:getCollisionShape()
+        avatar:store("entities", {
+            {hitbox = {lowCollisionShape, highCollisionShape}, pos = self.load.tank.pos}
+        })
     end
 
     if host:isHost() then
@@ -143,6 +150,9 @@ function State:populateQueue()
 end
 
 function State:render()
+    for name, manager in pairs(self.itemManagers) do
+        manager:render()
+    end
     self.crateSpawner:render()
     if self.load ~= nil and self.load.happenings ~= nil then
         self.load.tankModel:render(self.load.happenings)
@@ -200,7 +210,7 @@ function loadTank()
         end
         return hits
     end)
-    state.itemManagers["default:tntgun"]:apply(state.load.tank)
+    state.itemManagers["default:tntgun"]:_applyAfterPing(state.load.tank)
     local tankModel = util.deepcopy(models.models.tank.body)
     state.load.modelGroup = tankModel
     models.world:addChild(tankModel)
@@ -256,6 +266,7 @@ function pings.removeTank()
         models.world:removeChild(state.load.modelGroup)
         models.models.hud:setVisible(false)
         state.load = nil
+        avatar:store("entities", {})
     end
 end
 

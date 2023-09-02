@@ -20,7 +20,7 @@ function Health:init(pings, state)
     self.pings = pings
     self.state = state
 end
-
+function Health:render() end
 function Health:tick() end
 
 function Health:apply(tank)

@@ -116,7 +116,8 @@ function HUD:init(opt)
 
         SlotTexture = {}
     }, {
-        tank = false
+        tank = false,
+        happenings = false
     }))
 
     self.currentEffectsGroups = {}
@@ -312,7 +313,8 @@ function HUD:render(happenings)
             model:setVisible(not args{tank = self.tank})
         end
     }, {
-        tank = self.tank
+        tank = self.tank,
+        happenings = happenings
     }), client.getFrameTime())
 end
 

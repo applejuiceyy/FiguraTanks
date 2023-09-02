@@ -20,8 +20,12 @@ function TNTGunInstance:tick()
     end
 end
 
-function TNTGunInstance:populateSyncQueue()
-    -- no need: already comes by default
+function TNTGunInstance:populateSyncQueue(consumer)
+    consumer(function()
+        if self.tank.currentWeapon == self then
+            self.owner.pings.equip()
+        end
+    end)
 end
 
 function TNTGunInstance:generateIconGraphics(group)
@@ -43,5 +47,15 @@ function TNTGunInstance:generateHudInfoGraphics(group, constraints)
         end
     }
 end
+
+function TNTGunInstance:generateTankModelGraphics(tankModel)
+    return {
+        tick = function()
+
+        end
+    }
+end
+
+function TNTGunInstance:tankWeaponDispose() end
 
 return TNTGunInstance

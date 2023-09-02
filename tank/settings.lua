@@ -1,6 +1,6 @@
 return {
     bulletsCanBreakBlocks = false,
-    spawnCrates = false,
+    spawnCrates = true,
     tankMakesSound = true,
 
     ratank = false,

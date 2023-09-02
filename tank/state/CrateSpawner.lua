@@ -8,7 +8,8 @@ local CrateSpawner     = class("CrateSpawner")
 local crates = {
     ["default:health"] = true,
     ["default:speed"] = true,
-    ["default:friction"] = true
+    ["default:friction"] = true,
+    ["default:raybeam"] = true
 }
 
 local cratesIndexed = {}
