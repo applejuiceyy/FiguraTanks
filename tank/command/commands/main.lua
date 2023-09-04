@@ -27,6 +27,10 @@ local function argWrap(required, str)
     end
 end
 
+local function pcall(f, ...)
+    return true, f(...)
+end
+
 
 
 

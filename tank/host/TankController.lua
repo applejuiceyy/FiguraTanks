@@ -44,22 +44,16 @@ function TankModelController:render()
             math.lerp(self.tank.oldnozzle.y, self.tank.nozzle.y, delta),
             math.lerp(-self.tank.oldnozzle.x, -self.tank.nozzle.x, delta) - lerpAngle - 90, 0
         )
-
-        self.tankModel.model.hull:setVisible(false)
     else
         renderer:setCameraRot(nil, nil, nil)
-        self.tankModel.model.hull:setOpacity(1)
-        self.tankModel.model.hull:setVisible(true)
         if self.focusingTank then
             renderer:setCameraPivot(lerpPos + vec(0, 0.5, 0))
             renderer:setCameraRot(self.thirdPersonCameraRot.xy_ + vec(0, -lerpAngle, 0))
         end
     end
 
-    local e =not (renderer:isFirstPerson() and self.focusingTank)
-    self.tankModel.model.nozzle:setVisible(e)
-    self.tankModel.model.Camera:setVisible(e)
-    self.tankModel.ratank:setVisible(e and settings.ratank)
+    local e = renderer:isFirstPerson() and self.focusingTank
+    self.tankModel.focused = e
 end
 
 function TankModelController:dispose()

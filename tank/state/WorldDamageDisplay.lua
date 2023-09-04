@@ -439,7 +439,8 @@ function DamageCreator:update()
 end
 
 function DamageCreator:runOut()
-    while self:update() do end
+    while not self:update() do end
+    return self
 end
 
 function DamageCreator:apply()

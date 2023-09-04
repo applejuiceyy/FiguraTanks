@@ -68,6 +68,16 @@ end
 function RayBeamGun:tick()
     for ray in pairs(self.rays) do
         local since = (world.getTime() - ray.at) / 20
+        for i = 0, 1, 0.25 do
+            local s = since - (i / 20)
+            local position = (ray.pos + util.pitchYawToUnitVector(ray.dir) * 100 * s):floor()
+            local g = util.serialisePos(position)
+            if ray.damageCreated[g] == nil then
+                local damage = self.state.worldDamageDisplay:createDamageCreator(position, 20):canPenetrateBlocks()
+                damage:runOut():apply()
+                ray.damageCreated[g] = true
+            end
+        end
 
         if since >= 1 then
             ray.railParticle:remove()
@@ -165,7 +175,8 @@ function RayBeamGun:_shootAfterPing(tank, pos, dir)
         task = task,
         mat = localMatrix,
         railParticle = railParticle,
-        at = world.getTime()
+        at = world.getTime(),
+        damageCreated = {}
     }] = true
 
     self.avatarVars[id] = {
@@ -176,11 +187,11 @@ function RayBeamGun:_shootAfterPing(tank, pos, dir)
 end
 
 function RayBeamGun:generateIconGraphics(group)
-    group:newBlock("ee"):setBlock("ice"):setMatrix(util.transform(
+    group:newBlock("ee"):setBlock("amethyst_cluster"):setMatrix(util.transform(
         matrices.translate4(-8, -8, -8),
-        matrices.rotation4(0, 45, 0),
-        matrices.rotation4(30, 0, 0),
-        matrices.scale4(0.6, 0.6, 0.001)
+        matrices.rotation4(0, 0, 0),
+        matrices.rotation4(-45, 0, 0),
+        matrices.scale4(0.8, 0.8, 0.001)
     ))
 end
 

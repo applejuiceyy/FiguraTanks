@@ -16,27 +16,28 @@ local function collidesWithRectangle(highpos, lowpos, highthat, lowthat)
     return e
 end
 
-local function collidesWithBlock (block, highpos, lowpos)
-    if block:hasCollision() then
-        for _, collider in pairs(block:getCollisionShape()) do
-            local blockpos = block:getPos()
+local function collidesWithBlock (block, highpos, lowpos, shapeGetter)
+    for _, collider in pairs((shapeGetter or block.getCollisionShape)(block)) do
+        local blockpos = block:getPos()
 
-            local colliding = collidesWithRectangle(highpos, lowpos, blockpos + collider[2], blockpos + collider[1])
+        local colliding = collidesWithRectangle(highpos, lowpos, blockpos + collider[2], blockpos + collider[1])
 
-            if colliding then
-                return collider
-            end
+        if colliding then
+            return collider
         end
     end
+
 
     return false
 end
 
-return {
+local collision
+collision = {
     collidesWithBlock = collidesWithBlock,
 
     collidesWithRectangle = collidesWithRectangle,
-    collidesWithWorld = function (highshape, lowshape, highmargin, lowmargin)
+
+    collidesWithWorld = function (highshape, lowshape, shapeGetter, highmargin, lowmargin)
         if highmargin == nil and lowmargin == nil then
             highmargin = vec(0, 0, 0)
             lowmargin = vec(0, -0.5, 0)
@@ -46,7 +47,7 @@ return {
             for y = math.floor(lowwithmargin.y), math.floor(highwithmargin.y) do
                 for z = math.floor(lowwithmargin.z), math.floor(highwithmargin.z) do
                     local block = world.getBlockState(x, y, z)
-                    local collider = collidesWithBlock(block, highshape, lowshape)
+                    local collider = collidesWithBlock(block, highshape, lowshape, shapeGetter)
 
                     if collider then
                         return block, collider
@@ -56,4 +57,6 @@ return {
         end
         return false
     end
-} 
+}
+
+return collision

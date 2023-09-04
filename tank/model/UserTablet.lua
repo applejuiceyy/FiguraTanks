@@ -19,7 +19,7 @@ function UserTablet:init(pings, opt)
 
     local tankModel = util.deepcopy(models.models.tank.body)
     tankModel:setLight(15,15)
-    tankModel:removeChild(tankModel.Camera)
+
     self.paperModelRoller = util.group()
 
     self.paperModelRoller:addChild(tankModel)

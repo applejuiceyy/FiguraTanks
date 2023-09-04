@@ -33,7 +33,11 @@ function State:init()
             _function(self.crateSpawner, ...)
         end),
 
-        self
+        self,
+        function(name, requiredPings, converter, fn)
+            return createPingChannel("create-spawner$" .. name, requiredPings,
+            setmetatable(converter, {__index = pingChannelConverters}), fn)
+        end
     )
 
     self.worldDamageDisplay = WorldDamageDisplay:new(self)
@@ -64,6 +68,10 @@ function State:init()
     self.bulletDestroyBlocksWarning = 121
 end
 
+function State:createPingChannel(name, requiredPings, _function)
+    return createPingChannel(name, requiredPings, pingChannelConverters, _function)
+end
+
 function State:tick()
     if self.bulletDestroyBlocksWarning <= 120 then
         local color = "ff0000"
@@ -74,11 +82,8 @@ function State:tick()
         self.bulletDestroyBlocksWarning = self.bulletDestroyBlocksWarning + 1
     end
 
-    self.crateSpawner:tickNonHost()
     self.worldDamageDisplay:tick()
-    if host:isHost() then
-        self.crateSpawner:tick()
-    end
+    self.crateSpawner:tick()
     for name, manager in pairs(self.itemManagers) do
         manager:tick()
     end

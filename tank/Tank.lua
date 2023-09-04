@@ -17,19 +17,27 @@ local overrideVelocityMultiplier = {
     ["minecraft:white_concrete"] = 1.3
 }
 
-local function getFluid(block, y)
-    local fluids = block:getFluidTags()
-    if #fluids > 0 then
-        if block.properties == nil or block.properties == nil or tonumber(block.properties.level) == nil or block.properties.level == "8" or y < (1 - tonumber(block.properties.level) / 8) then
-            return fluids
-        end
-    end
-    return {}
-end
-
 local function includes(t, v)
     for _, k in pairs(t) do if k == v then return true end end return false
 end
+
+local function blocksWithFluid(fluid)
+    return function(block)
+        local fluids = block:getFluidTags()
+
+        if not includes(fluids, fluid) then
+            return {}
+        end
+
+        if block.properties == nil or tonumber(block.properties.level) == nil or block.properties.level == "8" or block.properties.waterlogged == "true" then
+            return {{vec(0, 0, 0), vec(1, 1, 1)}}
+        end
+
+        return {{vec(0, 0, 0), vec(1, 1 - tonumber(block.properties.level) / 8, 1)}}
+    end
+end
+
+
 
 local function collides(highCollisionShape, lowCollisionShape, climbBudget, originalPos, currentPos, vel)
     local coliding = nil
@@ -53,7 +61,7 @@ local function collides(highCollisionShape, lowCollisionShape, climbBudget, orig
 
                 climbingPos = climbingPos + vec(0, thisClimbingState, 0)
 
-                if collision.collidesWithWorld(climbingPos + highCollisionShape, climbingPos + lowCollisionShape, vec(0, 0, 0), vec(0, 0, 0)) then
+                if collision.collidesWithWorld(climbingPos + highCollisionShape, climbingPos + lowCollisionShape, nil, vec(0, 0, 0), vec(0, 0, 0)) then
                     allowsClimbing = false
                     break
                 end
@@ -161,13 +169,14 @@ end
 
 function Tank:moveHorizontally()
     local highCollisionShape, lowCollisionShape = self:getCollisionShape()
+    local block
 
-    self.pos, block, shape = collides(highCollisionShape, lowCollisionShape, 1.2, self.pos, self.pos, self.vel.x__)
+    self.pos, block = collides(highCollisionShape, lowCollisionShape, 1.2, self.pos, self.pos, self.vel.x__)
     if block then
         self.vel.x = 0
     end
 
-    self.pos, block, shape = collides(highCollisionShape, lowCollisionShape, 1.2, self.pos, self.pos, self.vel.__z)
+    self.pos, block = collides(highCollisionShape, lowCollisionShape, 1.2, self.pos, self.pos, self.vel.__z)
     if block then
         self.vel.z = 0
     end
@@ -180,18 +189,22 @@ function Tank:handleWeaponDamages()
 end
 
 function Tank:takeDamageFromBlocks()
-    local fluid = getFluid(world.getBlockState(self.pos), self.pos.y - math.floor(self.pos.y))
-    if includes(fluid, "c:water") then
+    if self:collidesWithWorld(blocksWithFluid("minecraft:water")) then
         self.vel = self.vel * 0.4
         self.health = self.health - 1
         self.fire = math.max(self.fire - 10, -1)
-    elseif includes(fluid, "c:lava") then
+    elseif self:collidesWithWorld(blocksWithFluid("minecraft:lava")) then
         self.vel = self.vel * 0.01
         self.health = self.health - 2
         self.fire = self.fire + 5
     end
 
-    if world.getBlockState(self.pos).id == "minecraft:fire" then
+    if self:collidesWithWorld(function(block)
+        if block.id == "minecraft:fire" then
+            return block:getOutlineShape()
+        end
+        return {}
+    end) then
         self.fire = self.fire + 2
         self.health = self.health - 1
     end
@@ -204,9 +217,13 @@ function Tank:takeDamageFromBlocks()
     return fluid
 end
 
-function Tank:avoidSuffocation()
+function Tank:collidesWithWorld(shapeGetter)
     local highCollisionShape, lowCollisionShape = self:getCollisionShape()
-    if collision.collidesWithWorld(self.pos + highCollisionShape, self.pos + lowCollisionShape) then
+    return collision.collidesWithWorld(self.pos + highCollisionShape, self.pos + lowCollisionShape, shapeGetter)
+end
+
+function Tank:avoidSuffocation()
+    if self:collidesWithWorld() then
         self.pos.y = self.pos.y + 0.1
     end
 end

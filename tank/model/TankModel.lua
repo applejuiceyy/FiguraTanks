@@ -1,8 +1,9 @@
-local class       = require("tank.class")
-local util        = require("tank.util")
-local EffectDisplay = require("tank.model.EffectDisplay")
-local settings      = require("tank.settings")
-local TankRetexturer= require("tank.model.TankRetexturer")
+local class          = require("tank.class")
+local util           = require("tank.util")
+local EffectDisplay  = require("tank.model.EffectDisplay")
+local settings       = require("tank.settings")
+local TankRetexturer = require("tank.model.TankRetexturer")
+local CustomKeywords = require("tank.model.CustomKeywords")
 
 local TankModelController = class("TankModelController")
 
@@ -10,6 +11,9 @@ function TankModelController:init(opt)
     self.opt = opt
     self.tank = opt.tank
     self.model = opt.model
+    self.isHud = opt.isHUD
+
+    self.focused = false
 
     self.currentWeapon = nil
     self.currentWeaponLifecycle = nil
@@ -25,27 +29,51 @@ function TankModelController:init(opt)
     self.oldMonitor = 0
 
     self.model:setVisible(true)
-    self.model.hull:setVisible(true)
-    self.model.nozzle:setVisible(true)
-    self.model.tracks:setVisible(true)
 
     self.ratank = self.model:newItem("e"):item('minecraft:player_head{SkullOwner:{Id:[I;-821169205,-1606269462,-2074908078,-1417990738],Properties:{textures:[{Value:"eyJ0ZXh0dXJlcyI6eyJTS0lOIjp7InVybCI6Imh0dHA6Ly90ZXh0dXJlcy5taW5lY3JhZnQubmV0L3RleHR1cmUvNzhkNmMzNDk5ZGRkNzgxN2NiMWQ3NzRhM2Q2NGIzMThkZWVlNWY3Zjc4NzcwNWZhNGEwOGRkMDkzYjUzYWIxMiJ9fX0="}]}}}'):setPos(0, 16, 0):setScale(1,1,1):setRot(0,90,0)
     self.ratank:setVisible(settings.ratank)
-    self.model.Camera.health.health:setPrimaryRenderType("EMISSIVE_SOLID")
-
-
-    local group = util.group():setPos(0, 30, 0):setScale(0.6, 0.6, 0.6)
-    self.model.Camera:addChild(group)
-    
-    self.effectDisplay = EffectDisplay:new{
-        tank = opt.tank,
-        group = group,
-        positioner = function(i, total)
-            return vec(((i - 1) - (total - 1) / 2) * 22, 0, 0)
-        end
-    }
 
     self.retexturer = TankRetexturer:new(self.model)
+
+    self.keywords = CustomKeywords:new(self.model, util.injectGenericCustomKeywordsRegistry({
+        Turret = {},
+        Nozzle = {},
+
+        EffectAnchor = {
+            injectedVariables = {
+                UPWARDS = vec(0, 0, 0),
+                DOWNWARDS = vec(0, 0, 0),
+                LEFTWARDS = vec(0, 0, 0),
+                RIGHTWARDS = vec(0, 0, 0),
+
+                totalEffects = 0,
+                currentEffectIndex = 0
+            }
+        }
+    }, {
+        tank = false,
+        modelManager = false,
+        happenings = false
+    }))
+
+    self.currentEffectsGroups = {}
+    for model, args in self.keywords:iterate("EffectAnchor") do
+        self.currentEffectsGroups[model] = EffectDisplay:new{
+            tank = self.tank,
+            group = model,
+            positioner = function(i, t)
+                local l = util.vecify(args{
+                    totalEffects = t,
+                    currentEffectIndex = i,
+                    UPWARDS = vec(0, (i - 1) * 22, 0),
+                    DOWNWARDS = vec(0, (i - 1) * -22, 0),
+                    LEFTWARDS = vec((i - 1) * 22, 0, 0),
+                    RIGHTWARDS = vec((i - 1) * -22, 0, 0)
+                })
+                return l + model:getPivot()
+            end
+        }
+    end
 end
 
 function TankModelController:beforeTankTick(oldHappenings)
@@ -73,6 +101,9 @@ function TankModelController:afterTankTick(happenings)
                 particles["explosion"]
                     :pos(self.tank.pos)
                     :spawn()
+                if settings.tankMakesSound then
+                    sounds:playSound("minecraft:entity.generic.explode", self.tank.pos, 0.5)
+                end
             end
             local d = (self.oldHealth - self.tank.health) / 50
             if settings.tankMakesSound then
@@ -106,7 +137,10 @@ function TankModelController:afterTankTick(happenings)
         end
     end
 
-    self.effectDisplay:tick()
+    for model, args in self.keywords:iterate("EffectAnchor") do
+        self.currentEffectsGroups[model]:tick()
+    end
+
     self.retexturer:setHealthPercentage(self.tank.health / 100)
 end
 
@@ -139,16 +173,26 @@ function TankModelController:render(happenings)
         )
     )
 
-    self.model.nozzle:setRot(0, self.tank.nozzle.x, 0)
-    self.model.nozzle.tube:setRot(0, 0, self.tank.nozzle.y)
-    self.model.Camera.health.health:setScale(self.tank.health / 2, 1, 1)
-
     if not self.opt.isHUD and (not self.tank.dead) then
         self:spawnDragParticles(happenings)
         self:spawnTankIgnitionSound(happenings)
     end
 
     util.callOn(self.currentWeaponLifecycle, "render")
+
+    
+    self.keywords:with(util.injectGenericCustomKeywordsExecution({
+        Turret = function(m)
+            m:setRot(0, self.tank.nozzle.x, 0)
+        end,
+        Nozzle = function(m)
+            m:setRot(0, 0, self.tank.nozzle.y)
+        end
+    }, {
+        tank = self.tank,
+        modelManager = self,
+        happenings = happenings
+    }), client.getFrameTime())
 end
 
 function TankModelController:spawnTankIgnitionSound(happenings)

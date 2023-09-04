@@ -26,6 +26,44 @@ local function CustomPosition(m, arg)
 end
 
 function HUD:init(opt)
+    self.keywords = CustomKeywords:new(models.models.hud, util.injectGenericCustomKeywordsRegistry({
+        BottomLeftCorner = {},
+        BottomCenterCorner = {},
+        BottomRightCorner = {},
+        CenterLeftCorner = {},
+        CenterCenterCorner = {},
+        CenterRightCorner = {},
+        TopLeftCorner = {},
+        TopCenterCorner = {},
+        TopRightCorner = {},
+        Position = {},
+        EffectAnchor = {
+            injectedVariables = {
+                UPWARDS = vec(0, 0, 0),
+                DOWNWARDS = vec(0, 0, 0),
+                LEFTWARDS = vec(0, 0, 0),
+                RIGHTWARDS = vec(0, 0, 0),
+
+                totalEffects = 0,
+                currentEffectIndex = 0
+            }
+        },
+        FlashingHealthBar = {},
+        VelocityBar = {},
+        DashBar = {},
+        DecoAntenna = {},
+        RadarBobberBlack = {},
+        RadarBobberTransparent = {},
+
+        WeaponIconAnchor = {},
+        WeaponStatsAnchor = {},
+
+        SlotTexture = {}
+    }, {
+        tank = false,
+        happenings = false
+    }))
+    
     self.tank = opt.tank
 
     self.oldHealth = math.huge
@@ -81,44 +119,6 @@ function HUD:init(opt)
     self.startShiftAnimationPaperModelCurrentRotation = 0
     self.paperModelCurrentRotation = 0
     self.paperModelCurrentRotationBelief = 0
-
-    self.keywords = CustomKeywords:new(models.models.hud, util.injectGenericCustomKeywordsRegistry({
-        BottomLeftCorner = {},
-        BottomCenterCorner = {},
-        BottomRightCorner = {},
-        CenterLeftCorner = {},
-        CenterCenterCorner = {},
-        CenterRightCorner = {},
-        TopLeftCorner = {},
-        TopCenterCorner = {},
-        TopRightCorner = {},
-        Position = {},
-        EffectAnchor = {
-            injectedVariables = {
-                UPWARDS = vec(0, 0, 0),
-                DOWNWARDS = vec(0, 0, 0),
-                LEFTWARDS = vec(0, 0, 0),
-                RIGHTWARDS = vec(0, 0, 0),
-
-                totalEffects = 0,
-                currentEffectIndex = 0
-            }
-        },
-        FlashingHealthBar = {},
-        VelocityBar = {},
-        DashBar = {},
-        DecoAntenna = {},
-        RadarBobberBlack = {},
-        RadarBobberTransparent = {},
-
-        WeaponIconAnchor = {},
-        WeaponStatsAnchor = {},
-
-        SlotTexture = {}
-    }, {
-        tank = false,
-        happenings = false
-    }))
 
     self.currentEffectsGroups = {}
     for model, args in self.keywords:iterate("EffectAnchor") do
@@ -303,14 +303,6 @@ function HUD:render(happenings)
             local s = world.getTime(delta) / 50 % 1
             m:setScale(s, s, 0)
             m:setOpacity(1 - s)
-        end,
-
-        If = function(model, args)
-            model:setVisible(args{tank = self.tank})
-        end,
-
-        Unless = function(model, args)
-            model:setVisible(not args{tank = self.tank})
         end
     }, {
         tank = self.tank,
@@ -323,6 +315,16 @@ function HUD:dispose()
     models.models.hud:removeChild(self.backgroundPaperModelRoller)
     for model, display in pairs(self.currentEffectsGroups) do
         display:dispose()
+    end
+    
+    for group, data in pairs(self.currentWeaponIconGroups) do
+        util.callOn(data.lifecycle, "dispose")
+        group:removeChild(data.group)
+    end
+
+    for group, data in pairs(self.currentWeaponStatsGroups) do
+        util.callOn(data.lifecycle, "dispose")
+        group:removeChild(data.group)
     end
 end
 

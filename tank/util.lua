@@ -1,4 +1,4 @@
-local nid = 0
+local nid = world.getTime()
 
 local function intID()
     nid = nid + 1
@@ -91,6 +91,9 @@ util = {
         if obj == nil or obj[name] == nil then
             return
         end
+        if obj.functionsUseSelf then
+            return obj[name](obj, ...)
+        end
         return obj[name](...)
     end,
 
@@ -130,6 +133,7 @@ util = {
             injectedVariables = modelledVariable,
             executionStyle = "STATEMENT"
         }
+
         return obj
     end,
     injectGenericCustomKeywordsExecution = function(obj, variables)

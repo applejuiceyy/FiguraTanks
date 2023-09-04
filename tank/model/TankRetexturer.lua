@@ -1,6 +1,7 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
 local Event      = require("tank.events.events")
+local CustomKeywords = require("tank.model.CustomKeywords")
 
 local DamageRetexturer = class("DamageRetexturer")
 
@@ -116,6 +117,10 @@ end
 
 function DamageRetexturer:init(model)
     self.model = model
+
+    self.keywords = CustomKeywords:new(model, {
+        NoRetexture = {}
+    })
     
     self.unsubber = nil
     self.currentSlot = -1
@@ -127,7 +132,7 @@ end
 
 function DamageRetexturer:setHealthPercentage(healthPercentage)
     local data = retexturedTextures["textures.tank"]
-    local slot0 = math.floor((1 - healthPercentage) * (data.accuracy - 1))
+    local slot0 = math.floor((1 - math.min(math.max(healthPercentage, 0), 1)) * (data.accuracy - 1))
     if self.currentSlot == slot0 then
         return
     end
@@ -162,21 +167,17 @@ function DamageRetexturer:setHealthPercentage(healthPercentage)
 end
 
 function DamageRetexturer:setTexture(data, slot0)
-    self.model.nozzle:setPrimaryTexture("CUSTOM", retexturedTextures["textures.tank"].texture)
-    self.model.nozzle:uvMatrix(util.transform(
+    local u = util.transform(
         matrices.scale3(1 / data.accuracy, 1),
         matrices.translate3(slot0, 0)
-    ))
-    self.model.hull:setPrimaryTexture("CUSTOM", retexturedTextures["textures.tank"].texture)
-    self.model.hull:uvMatrix(util.transform(
-        matrices.scale3(1 / data.accuracy, 1),
-        matrices.translate3(slot0, 0)
-    ))
-    self.model.tracks:setPrimaryTexture("CUSTOM", retexturedTextures["textures.tank"].texture)
-    self.model.tracks:uvMatrix(util.transform(
-        matrices.scale3(1 / data.accuracy, 1),
-        matrices.translate3(slot0, 0)
-    ))
+    )
+    self.model:setPrimaryTexture("CUSTOM", retexturedTextures["textures.tank"].texture)
+    self.model:uvMatrix(u)
+    for model in self.keywords:iterate("NoRetexture") do
+        -- again improve this when getTextures
+        model:setPrimaryTexture("CUSTOM", textures["textures.hud"])
+        model:uvMatrix(u:inverted())
+    end
 end
 
 

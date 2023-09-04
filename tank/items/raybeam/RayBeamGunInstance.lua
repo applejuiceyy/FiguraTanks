@@ -70,12 +70,7 @@ function RayBeamGunInstance:populateSyncQueue(consumer)
 end
 
 function RayBeamGunInstance:generateIconGraphics(group)
-    group:newBlock("ee"):setBlock("ice"):setMatrix(util.transform(
-        matrices.translate4(-8, -8, -8),
-        matrices.rotation4(0, 45, 0),
-        matrices.rotation4(-30, 0, 0),
-        matrices.scale4(0.6, 0.6, 0.001)
-    ))
+    return self.owner:generateIconGraphics(group)
 end
 
 function RayBeamGunInstance:generateHudInfoGraphics(group, constraints)
