@@ -1,8 +1,11 @@
 local class              = require("tank.class")
 local util               = require("tank.util")
 
+---@params 
 local WorldDamageDisplay = class("WorldDamageDisplay")
+---@params WorldDamageDisplay any integer
 local DamageCreator      = class("DamageCreator")
+---@params any
 local BlockDamage        = class("BlockDamage")
 
 
@@ -158,7 +161,7 @@ local blockThatCulls = {
 }
 
 
-function WorldDamageDisplay:init(state)
+function WorldDamageDisplay:init()
     self.activeCreators = {}
     self.blockDamagePos = {}
     self.numberOfDamages = 0

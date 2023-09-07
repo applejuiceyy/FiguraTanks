@@ -63,7 +63,7 @@ function HUD:init(opt)
         tank = false,
         happenings = false
     }))
-    
+
     self.tank = opt.tank
 
     self.oldHealth = math.huge
@@ -88,7 +88,7 @@ function HUD:init(opt)
     self.paperModel = TankModel:new{
         tank = self.tank,
         model = tankModel,
-        isHud = true
+        isHUD = true
     }
 
     self.worldSlice = WorldSlice:new{

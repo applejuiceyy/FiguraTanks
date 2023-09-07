@@ -3,6 +3,7 @@ local util        = require("tank.util")
 local CustomKeywords = require("tank.model.CustomKeywords")
 local TankModel      = require("tank.model.TankModel")
 
+---@params {group:any,onBlock:fun(group:any,blockstate:any)|nil,onTask:fun(group:any,blockstate:any)|nil}
 local WorldSlice = class("WorldSlice")
 
 function WorldSlice:init(opt)

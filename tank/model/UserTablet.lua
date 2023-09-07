@@ -4,6 +4,7 @@ local CustomKeywords = require("tank.model.CustomKeywords")
 local TankModel      = require("tank.model.TankModel")
 local WorldSlice     = require("tank.model.WorldSlice")
 
+---@params {pings:{syncEquip:function}} {tank:any}
 local UserTablet = class("UserTablet")
 
 UserTablet.requiredPings = {
@@ -27,7 +28,7 @@ function UserTablet:init(pings, opt)
     self.paperModel = TankModel:new{
         tank = self.tank,
         model = tankModel,
-        isHud = true
+        isHUD = true
     }
 
     self.worldSlice = WorldSlice:new{

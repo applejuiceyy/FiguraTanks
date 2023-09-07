@@ -159,7 +159,7 @@ util = {
             end,
 
             Do = function(model, args)
-                args(setmetatable({model = model, self = model}, {__index = variables}))
+                args(variables)
             end,
         }})
     end,

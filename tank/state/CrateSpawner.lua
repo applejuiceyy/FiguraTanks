@@ -4,6 +4,7 @@ local collision = require("tank.collision")
 local settings    = require("tank.settings")
 local SharedWorldState = require("tank.state.worldState.SharedWorldState")
 
+---@params {unsupportedCrate:fun(self:CrateSpawner,id:integer):nil} State any
 local CrateSpawner     = class("CrateSpawner")
 
 local crates = {
@@ -26,30 +27,23 @@ local function positionIsSupported(position)
     and collision.collidesWithWorld(vec(0.1, 0, 0.1) + position, vec(-0.1, -0.1, -0.1) + position)
 end
 
+
 CrateSpawner.requiredPings = {
-    syncCrate = function(self, ...)
-        if not player:isLoaded() then
-            return
-        end
-        self:syncCrate(...)
-    end,
-
-    deleteCrate = function(self, pos)
-        self:deleteCrate(pos)
-    end,
-
     unsupportedCrate = function(self, id)
         local crate = self.sharedWorldState:fetchOwnEntity(id)
+        if crate == nil then
+            return
+        end
         self.sharedWorldState:deleteEntityWithoutPing(id)
         for i = 0, 10 do
             particles:newParticle("block barrel",
-            crate.location + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6) + vec(0.5, 0, 0.5)
+            crate.location + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6)
         )
         end
     end
 }
 
-function CrateSpawner:init(pings, state, createPingChannel)
+function CrateSpawner:init(pings, state, pingChannel)
     self.pings = pings
 
     self.tryingToSpawnCrates = true
@@ -89,7 +83,7 @@ function CrateSpawner:init(pings, state, createPingChannel)
                 util.transform(
                     matrices.rotation4(90, 0, 0),
                     matrices.scale4(0.7, 0.7, 0.7),
-                    matrices.translate4(location * 16)
+                    matrices.translate4(location * 16 + vec(0, 0.1, 0))
                 )
             )
 
@@ -130,7 +124,7 @@ function CrateSpawner:init(pings, state, createPingChannel)
 
             models.world:addChild(crate)
 
-            local creator = self.state.worldDamageDisplay:createDamageCreator((location):floor() - vec(0, 1, 0), 30)
+            local creator = self.state.worldDamageDisplay:createDamageCreator((location - vec(0, 0.01, 0)):floor(), 30)
 
             return {
                 id = id,
@@ -210,7 +204,7 @@ function CrateSpawner:init(pings, state, createPingChannel)
         end
     }
 
-    self.sharedWorldState:setBakedPings(createPingChannel("SWS", self.sharedWorldState:makePingStructure(), {}, function(_f, ...)
+    self.sharedWorldState:setBakedPings(pingChannel.createPingChannel("SWS", self.sharedWorldState:makePingStructure(), {}, function(_f, ...)
         _f(...)
     end))
 end
@@ -232,6 +226,14 @@ function CrateSpawner:trySpawnCrate()
     end
 
     local place = vec(x, y, z) + center + vec(math.random() - 0.5, 0, math.random() - 0.5)
+
+    local y = 0
+    local block = world.getBlockState(place)
+    for _, shape in ipairs(block:getCollisionShape()) do
+        y = math.max(y, shape[2].y)
+    end
+
+    place.y = place.y + y
 
     if not positionIsSupported(place) then
         return
@@ -297,9 +299,7 @@ end
 
 function CrateSpawner:tick()
     if host:isHost() and settings.spawnCrates then
-        for i = 0, 10 do
-            self:trySpawnCrate()
-        end
+        self:trySpawnCrate()
 
         for id, crate in self.sharedWorldState:iterateOwnEntities() do
             if not positionIsSupported(crate.location) then

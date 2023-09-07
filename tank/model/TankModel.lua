@@ -5,13 +5,14 @@ local settings       = require("tank.settings")
 local TankRetexturer = require("tank.model.TankRetexturer")
 local CustomKeywords = require("tank.model.CustomKeywords")
 
+---@params {tank:Tank,model:any,isHUD:boolean}
 local TankModelController = class("TankModelController")
 
 function TankModelController:init(opt)
     self.opt = opt
     self.tank = opt.tank
     self.model = opt.model
-    self.isHud = opt.isHUD
+    self.isHUD = opt.isHUD
 
     self.focused = false
 
@@ -209,7 +210,7 @@ function TankModelController:spawnTankIgnitionSound(happenings)
         if settings.tankMakesSound then
             table.insert(self.sounds, sounds["entity.iron_golem.repair"]
                 :pos(self.tank.pos)
-                :volume((0.06 + happenings.targetVelocity:length() / 20) * self.soundPower)
+                :volume((0.06 + happenings.targetVelocity:length() / 20) * 2 * self.soundPower)
                 :pitch(0.17 + happenings.targetVelocity:length() / 100)
                 :subtitle()
                 :play()
@@ -231,7 +232,7 @@ function TankModelController:spawnTankEngineNoises()
     if settings.tankMakesSound then
         table.insert(self.sounds, sounds["entity.iron_golem.death"]
             :pos(self.tank.pos)
-            :volume(0.01 * self.soundPower)
+            :volume(0.02 * self.soundPower)
             :pitch(0.8)
             :subtitle()
             :play()

@@ -7,7 +7,7 @@ local function loadScript(obj)
     return load(table.concat(obj, "\n"))
 end
 
-local function generateFunction(data, thing)
+local function generateFunction(model, data, thing)
     if data.executionStyle == "STRING" then
         return function() return thing end
     else
@@ -17,8 +17,9 @@ local function generateFunction(data, thing)
                 table.insert(generation, "local " .. variable)
             end
             table.insert(generation, "do")
+            table.insert(generation, "local _ = ...")
             for variable, defaultValue in pairs(data.injectedVariables) do
-                table.insert(generation, variable .. " = (...)[\"" .. variable .. "\"]")
+                table.insert(generation, variable .. " = _[\"" .. variable .. "\"]")
             end
             table.insert(generation, "end")
         end
@@ -47,9 +48,11 @@ local function generateFunction(data, thing)
         ::happy::
 
         return function(args)
+
             if args == nil then
-                return original(data.injectedVariables)
+                return original({self = model}, data.injectedVariables)
             end
+            args.self = model
             return original(setmetatable(args, {__index = data.injectedVariables}))
         end
     end
@@ -86,7 +89,7 @@ function CustomKeywords:parseName(k, name, model, data)
     if string.sub(name, 1, string.len(k)) == k then
         local start, _, thing = string.find(name, "%[(.+)%]", string.len(k))
         if start ~= nil then
-            self.indexed[k][model] = generateFunction(data, thing)
+            self.indexed[k][model] = generateFunction(model, data, thing)
         else
             self.indexed[k][model] = function() end
         end

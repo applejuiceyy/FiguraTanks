@@ -3,6 +3,7 @@ local util        = require("tank.util")
 local Event      = require("tank.events.events")
 local CustomKeywords = require("tank.model.CustomKeywords")
 
+---@params any
 local DamageRetexturer = class("DamageRetexturer")
 
 local retexturedTextures = {}

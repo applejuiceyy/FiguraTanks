@@ -3,6 +3,7 @@ local util      = require("tank.util")
 local collision = require("tank.collision")
 local settings    = require("tank.settings")
 
+---@params {actions:{[string]:{arguments:string[],acknowledgementArguments:string[],onAcknowledgement:function,onAcknowledging:function,onAction:function}},dispose:function,rendering:{render:function,tick:function},publicFace:function,createPingDataFromEntity:function,fetchIdFromData:function,fetchIdFromPing:function,createEntityDataFromPing:function,name:string,avatarVars:fun(in:string):string}
 local SharedWorldState     = class("SharedWorldState")
 
 local function getChain(obj, a, ...)
@@ -260,6 +261,9 @@ function SharedWorldState:newEntityWithoutPing(data)
 end
 
 function SharedWorldState:deleteEntityWithoutPing(id)
+    if self.entities[id] == nil then
+        return
+    end
     self.opt.dispose(self.entities[id])
     self.entities[id] = nil
     self.publicFacingEntities[id] = nil
@@ -379,7 +383,6 @@ function SharedWorldState:render()
     end
 end
 --#endregion
-
 
 
 return SharedWorldState

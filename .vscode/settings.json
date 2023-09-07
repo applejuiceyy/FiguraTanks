@@ -1,3 +1,5 @@
 {
-    "Lua.completion.autoRequire": true
+    "Lua.completion.autoRequire": true,
+    "Lua.misc.parameters": ["--develop=true"],
+    "Lua.runtime.plugin": "./.lsplugin/test.lua"
 }

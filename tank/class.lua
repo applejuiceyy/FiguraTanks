@@ -7,7 +7,6 @@ end
 
 ---comment
 ---@param name string
----@param subclass table?
 local class = function (name, subclass)
     local obj = setmetatable({}, subclass or {functionsUseSelf = true})
     obj.class = obj

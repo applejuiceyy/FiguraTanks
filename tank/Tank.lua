@@ -2,6 +2,7 @@ local Event     = require("tank.events.events")
 local collision = require("tank.collision")
 local class     = require("tank.class")
 
+---@params fun():table
 local Tank      = class("Tank")
 
 local waterlogs = {
@@ -82,7 +83,6 @@ local function collides(highCollisionShape, lowCollisionShape, climbBudget, orig
 
     return currentPos, coliding, shape
 end
-
 
 
 
@@ -408,6 +408,5 @@ end
 function Tank:getCollisionShape()
     return vec(0.3, 0.5, 0.3), vec(-0.3, 0, -0.3)
 end
-
 
 return Tank

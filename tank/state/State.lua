@@ -7,11 +7,11 @@ local keyboardController = require("tank.host.controller.keyboardController")
 local HUD                = require("tank.model.HUD")
 local util               = require("tank.util")
 local CrateSpawner       = require("tank.state.CrateSpawner")
-local createPingChannel  = require("tank.state.createPingChannel")
+local pingChannel  = require("tank.state.createPingChannel")
 local WorldDamageDisplay  = require("tank.state.WorldDamageDisplay")
 local settings            = require("tank.settings")
 
-
+---@params 
 local State     = class("State")
 
 local loadTank
@@ -22,22 +22,19 @@ function State:init()
     self.load = nil
     self.syncTime = 100
 
-    self.tabletPingChannel = createPingChannel("tablet", UserTablet.requiredPings, pingChannelConverters, function (_function, ...)
+    self.tabletPingChannel = pingChannel.createPingChannel("tablet", UserTablet.requiredPings, pingChannelConverters, function (_function, ...)
         if self.load ~= nil then
             _function(self.load.tablet, ...)
         end
     end)
 
     self.crateSpawner = CrateSpawner:new(
-        createPingChannel("create-spawner", CrateSpawner.requiredPings, pingChannelConverters, function(_function, ...)
+        pingChannel.createPingChannel("create-spawner", CrateSpawner.requiredPings, pingChannelConverters, function(_function, ...)
             _function(self.crateSpawner, ...)
         end),
 
         self,
-        function(name, requiredPings, converter, fn)
-            return createPingChannel("create-spawner$" .. name, requiredPings,
-            setmetatable(converter, {__index = pingChannelConverters}), fn)
-        end
+        pingChannel.inheritSettings("create-spawner", pingChannelConverters)
     )
 
     self.worldDamageDisplay = WorldDamageDisplay:new(self)
@@ -49,7 +46,7 @@ function State:init()
             local manager = require(path)
             local name = manager.name
 
-            local transformedPings = createPingChannel("manager-" .. manager.name, manager.requiredPings, pingChannelConverters, function(_function, ...)
+            local transformedPings = pingChannel.createPingChannel("manager-" .. manager.name, manager.requiredPings, pingChannelConverters, function(_function, ...)
                 if self.load ~= nil then
                     _function(self.itemManagers[name], self.load.tank, ...)
                 end
