@@ -1,6 +1,10 @@
 local State = require "tank.state.State"
 local util  = require "tank.util"
 
+if debugger == nil then
+    debugger = {marker = function() end, range = function() end}
+end
+
 models.world:setParentType("WORLD")
 
 models.models.tank:setVisible(false)

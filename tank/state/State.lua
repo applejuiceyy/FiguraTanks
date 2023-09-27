@@ -88,13 +88,17 @@ function State:tick()
         self.load.tankModel:beforeTankTick(self.load.happenings)
         self.load.tablet:beforeTankTick(self.load.happenings)
         if host:isHost() then
+            debugger:region("host only")
             self.load.HUD:beforeTankTick(self.load.happenings)
+            debugger:region(nil)
         end
         self.load.happenings = self.load.tank:tick()
         self.load.tankModel:afterTankTick(self.load.happenings)
         self.load.tablet:afterTankTick(self.load.happenings)
         if host:isHost() then
+            debugger:region("host only")
             self.load.HUD:afterTankTick(self.load.happenings)
+            debugger:region(nil)
         end
 
         local highCollisionShape, lowCollisionShape = self.load.tank:getCollisionShape()
@@ -104,6 +108,7 @@ function State:tick()
     end
 
     if host:isHost() then
+        debugger:region("host only")
         if #self.syncQueue > 0 then
             table.remove(self.syncQueue, 1)()
         else
@@ -118,6 +123,7 @@ function State:tick()
             pings.syncCriticalTank(self.load.tank:serialiseCritical())
             self.tankPositionIsDirty = false
         end
+        debugger:region(nil)
     end
 end
 
@@ -160,8 +166,10 @@ function State:render()
         self.load.tankModel:render(self.load.happenings)
         self.load.tablet:render(self.load.happenings)
         if host:isHost() then
+            debugger:region("host only")
             self.load.tankController:render(self.load.happenings)
             self.load.HUD:render(self.load.happenings)
+            debugger:region(nil)
         end
     end
 end
@@ -228,6 +236,7 @@ function loadTank()
 
 
     if host:isHost() then
+        debugger:region("host only")
         state.load.tankController = TankController:new{
             tank = state.load.tank,
             tankModel = state.load.tankModel
@@ -237,6 +246,7 @@ function loadTank()
         }
         
         models.models.hud:setVisible(true)
+        debugger:region(nil)
     else
         state.load.tank.controller = keyboardController
     end
@@ -262,8 +272,10 @@ function pings.removeTank()
         state.load.tankModel:dispose()
         state.load.tablet:dispose()
         if host:isHost() then
+            debugger:region("host only")
             state.load.HUD:dispose()
             state.load.tankController:dispose()
+            debugger:region(nil)
         end
         models.world:removeChild(state.load.modelGroup)
         models.models.hud:setVisible(false)
@@ -275,7 +287,9 @@ end
 function pings.focusTank()
     if state.load ~= nil then
         if host:isHost() then
+            debugger:region("host only")
             state.load.tankController:focusTank()
+            debugger:region(nil)
         end
         state.load.tablet:equip()
     end
@@ -284,7 +298,9 @@ end
 function pings.unfocusTank()
     if state.load ~= nil then
         if host:isHost() then
+            debugger:region("host only")
             state.load.tankController:unfocusTank()
+            debugger:region(nil)
         end
         state.load.tablet:unequip()
     end

@@ -298,18 +298,21 @@ function CrateSpawner:applyEffect(owner, id)
 end
 
 function CrateSpawner:tick()
-    if host:isHost() and settings.spawnCrates then
-        self:trySpawnCrate()
-
-        for id, crate in self.sharedWorldState:iterateOwnEntities() do
-            if not positionIsSupported(crate.location) then
-                self.pings.unsupportedCrate(id)
+    if host:isHost() then
+        debugger:region("host only")
+        if settings.spawnCrates then
+            self:trySpawnCrate()
+            for id, crate in self.sharedWorldState:iterateOwnEntities() do
+                if not positionIsSupported(crate.location) then
+                    self.pings.unsupportedCrate(id)
+                end
             end
         end
 
         if self.state.load ~= nil then
             self:testCrateReach()
         end
+        debugger:region(nil)
     end
 
     self.sharedWorldState:tick()

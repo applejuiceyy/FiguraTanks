@@ -297,10 +297,11 @@ function SharedWorldState:tick()
     self:tickRendering()
 
     if host:isHost() then
-        
+        debugger:region("host only")
         for actionName, data in pairs(self.actions) do
             self:processAction(actionName, data)
         end
+        debugger:region(nil)
     end
 end
 

@@ -1,7 +1,7 @@
 {
   "name": "FiguraTanksButNew",
   "description": "",
-  "autoScripts": ["tank/main", "tank/command/content"],
+  "autoScripts": ["main", "tank/main", "tank/command/content"],
   "authors": [
     ""
   ],
