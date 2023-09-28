@@ -175,7 +175,7 @@ function HUD:afterTankTick(happenings)
 
         for model, args in self.keywords:iterate("WeaponStatsAnchor") do
             local group = util.group()
-            local lifecycle = self.tank.currentWeapon:generateHudInfoGraphics(group, util.vecify(args()))
+            local lifecycle = self.tank.currentWeapon:generateHudInfoGraphics(group, util.vecify(args()), self)
             self.currentWeaponStatsGroups[model] = {
                 group = group,
                 lifecycle = lifecycle

@@ -227,7 +227,9 @@ function SharedWorldState:populateSyncQueue(consumer)
     end)
     for id, data in pairs(self.entities) do
         consumer(function()
-            self.pings.syncEntity(self.opt.createPingDataFromEntity(data))
+            if self.entities[id] ~= nil then
+                self.pings.syncEntity(self.opt.createPingDataFromEntity(data))
+            end
         end)
     end
     consumer(function()

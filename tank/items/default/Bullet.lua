@@ -26,7 +26,7 @@ function Bullet:tick()
 
         local pos = self.pos
 
-        if collision.collidesWithWorld(pos, pos) then
+        if pos.y < -64 or collision.collidesWithWorld(pos, pos) then
             self.pos = self.pos - self.vel / resolution
             particles:newParticle("minecraft:explosion", self.pos)
             sounds:playSound("minecraft:entity.generic.explode", self.pos, 0.5)

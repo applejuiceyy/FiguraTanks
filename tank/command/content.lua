@@ -45,7 +45,7 @@ local function traverseSet(name, obj, value)
         if subthing == nil then
             return
         end
-        return traverseSet(string.sub(name, pos + 1), subthing)
+        return traverseSet(string.sub(name, pos + 1), subthing, value)
     end
 end
 
@@ -105,7 +105,7 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
                     return {}
                 end)
                 :executes(function(ctx)
-                    pings.emitSettingsChange(ctx.args.name, settings, load("return " .. ctx.args.value)())
+                    pings.emitSettingsChange(ctx.args.name, load("return " .. ctx.args.value)())
                 end)
             )
         )

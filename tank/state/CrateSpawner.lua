@@ -11,7 +11,8 @@ local crates = {
     ["default:health"] = true,
     ["default:speed"] = true,
     ["default:friction"] = true,
-    ["default:raybeam"] = true
+    ["default:raybeam"] = true,
+    ["default:flamethrower"] = true
 }
 
 local cratesIndexed = {}

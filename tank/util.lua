@@ -167,6 +167,17 @@ util = {
     pitchYawToUnitVector = function(thing)
         local ret = vectors.rotateAroundAxis(-thing.y, vec(1, 0, 0), vec(0, 0, 1))
         return vectors.rotateAroundAxis(thing.x, ret, vec(0, 1, 0))
+    end,
+
+    displayBox = function(mat, high, low)
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.___ + high.xyz))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.x__ + high._yz))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low._y_ + high.x_z))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.xy_ + high.__z))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.__z + high.xy_))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.x_z + high._y_))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low._yz + high.x__))
+        particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.xyz + high.___))
     end
 }
 
