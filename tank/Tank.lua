@@ -379,18 +379,18 @@ function Tank:tick()
 end
 
 function Tank:serialise()
-    return self.pos, self.vel, self.angle, self.anglemomentum, self.health, self.nozzle, self.dead, self.fire
+    return self.pos, self.vel, self.angle, self.anglevel, self.health, self.nozzle, self.dead, self.fire
 end
 
 function Tank:serialiseCritical()
     return self.pos, self.vel, self.health, self.dead, self.fire
 end
 
-function Tank:apply(pos, vel, angle, anglemomentum, health, nozzle, dead, fire)
+function Tank:apply(pos, vel, angle, anglevel, health, nozzle, dead, fire)
     self.pos = pos
     self.vel = vel
     self.angle = angle
-    self.anglemomentum = anglemomentum
+    self.anglevel = anglevel
     self.health = health
     self.nozzle = nozzle
     self.dead = dead

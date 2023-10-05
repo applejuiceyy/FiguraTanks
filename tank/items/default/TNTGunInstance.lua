@@ -1,6 +1,8 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
 
+
+---@params TNTGun Tank
 local TNTGunInstance = class("TNTGunInstance")
 
 function TNTGunInstance:init(owner, tank)
@@ -16,14 +18,17 @@ function TNTGunInstance:tick()
     
     if self.tank.controller.shoot and self.charge >= 1 then
         self.charge = self.charge - 1
-        self.owner:shoot(self.tank)
+        local vel = vec(2, 0, 0)
+        vel = vectors.rotateAroundAxis(-self.tank.nozzle.y, vel, vec(0, 0, 1))
+        vel = vectors.rotateAroundAxis(self.tank.nozzle.x + self.tank.angle, vel, vec(0, 1, 0))
+        self.owner.shoot(self.tank, self.tank.pos + vec(0, 0.3, 0), vel)
     end
 end
 
 function TNTGunInstance:populateSyncQueue(consumer)
     consumer(function()
         if self.tank.currentWeapon == self then
-            self.owner.pings.equip()
+            self.owner.equip(self.tank)
         end
     end)
 end

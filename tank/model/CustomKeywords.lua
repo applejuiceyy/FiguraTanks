@@ -3,8 +3,8 @@ local util        = require("tank.util")
 
 local CustomKeywords = class("CustomKeywords")
 
-local function loadScript(obj)
-    return load(table.concat(obj, "\n"))
+local function loadScript(obj, name)
+    return load(table.concat(obj, "\n"), name)
 end
 
 local function generateFunction(model, data, thing)
@@ -29,13 +29,13 @@ local function generateFunction(model, data, thing)
             table.insert(generation, "return " .. thing)
         end
 
-        local original, message = loadScript(generation)
+        local original, message = loadScript(generation, thing)
         if message ~= nil or original == nil then
             if data.executionStyle ~= "STATEMENT" then
                 table.remove(generation)
                 table.insert(generation, thing)
 
-                local thisTime = loadScript(generation)
+                local thisTime = loadScript(generation, thing)
 
                 if thisTime ~= nil then
                     original = thisTime

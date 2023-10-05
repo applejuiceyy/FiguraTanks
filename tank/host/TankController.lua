@@ -44,12 +44,9 @@ function TankModelController:render()
             math.lerp(self.tank.oldnozzle.y, self.tank.nozzle.y, delta),
             math.lerp(-self.tank.oldnozzle.x, -self.tank.nozzle.x, delta) - lerpAngle - 90, 0
         )
-    else
-        renderer:setCameraRot(nil, nil, nil)
-        if self.focusingTank then
-            renderer:setCameraPivot(lerpPos + vec(0, 0.5, 0))
-            renderer:setCameraRot(self.thirdPersonCameraRot.xy_ + vec(0, -lerpAngle, 0))
-        end
+    elseif self.focusingTank then
+        renderer:setCameraPivot(lerpPos + vec(0, 0.5, 0))
+        renderer:setCameraRot(self.thirdPersonCameraRot.xy_ + vec(0, -lerpAngle, 0))
     end
 
     local e = renderer:isFirstPerson() and self.focusingTank
@@ -68,7 +65,7 @@ function TankModelController:unfocusTank()
     renderer:setCameraPivot()
     self.focusingTank = false
     self.tank.controller = noopController
-    --renderer.renderHUD = true
+    renderer:setCameraRot(nil, nil, nil)
     keyboardController.deactivate()
 end
 

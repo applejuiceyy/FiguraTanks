@@ -180,7 +180,6 @@ function TankModelController:render(happenings)
     end
 
     util.callOn(self.currentWeaponLifecycle, "render")
-
     
     self.keywords:with(util.injectGenericCustomKeywordsExecution({
         Turret = function(m)

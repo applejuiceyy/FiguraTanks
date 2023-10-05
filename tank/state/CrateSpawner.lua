@@ -4,7 +4,7 @@ local collision = require("tank.collision")
 local settings    = require("tank.settings")
 local SharedWorldState = require("tank.state.worldState.SharedWorldState")
 
----@params {unsupportedCrate:fun(self:CrateSpawner,id:integer):nil} State any
+---@params PingChannel State
 local CrateSpawner     = class("CrateSpawner")
 
 local crates = {
@@ -29,33 +29,60 @@ local function positionIsSupported(position)
 end
 
 
-CrateSpawner.requiredPings = {
-    unsupportedCrate = function(self, id)
-        local crate = self.sharedWorldState:fetchOwnEntity(id)
-        if crate == nil then
-            return
-        end
-        self.sharedWorldState:deleteEntityWithoutPing(id)
-        for i = 0, 10 do
-            particles:newParticle("block barrel",
-            crate.location + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6)
-        )
-        end
-    end
-}
+function CrateSpawner:init(pingChannel, state)
+    pingChannel:augment{
+        crate = {
+            inflate = function(id)
+                local crate = self.sharedWorldState:fetchOwnEntity(id)
+                if crate == nil then
+                    return false, "Unknown crate"
+                end
+                return true, crate
+            end,
+    
+            deflate = function(data)
+                local crate = self.sharedWorldState:idFromEntity(data)
+                if crate == nil then
+                    return false, "Unknown crate"
+                end
+                return true, crate
+            end
+        }
+    }
 
-function CrateSpawner:init(pings, state, pingChannel)
-    self.pings = pings
+    self.unsupportedCrate = pingChannel:register{
+        name = "unsupportedCrate",
+        arguments = {"default"},
+        func = function(id)
+                local crate = self.sharedWorldState:fetchOwnEntity(id)
+                if crate == nil then
+                    return
+                end
+                self.sharedWorldState:deleteEntityWithoutPing(id)
+                for i = 0, 10 do
+                    particles:newParticle("block barrel",
+                    crate.location + vec(math.random() - 0.5, math.random(), math.random() - 0.5) * vec(0.6, 0.8, 0.6)
+                )
+            end
+        end
+    }
 
     self.tryingToSpawnCrates = true
 
     self.state = state
+
+    self.destroyCrates = false
+
+    self.sharedWorldStatePingChannel = pingChannel:inherit(
+        "SWS", {}, function() return self.sharedWorldStatePingChannel end, {}, {}
+    )
 
     self.sharedWorldState = SharedWorldState:new{
         name = "tankCrates",
         avatarVars = function(name)
             return "__FiguraTanks_" .. name
         end,
+        pingChannel = self.sharedWorldStatePingChannel,
         actions = {
             tankReach = {
                 arguments = {},
@@ -139,7 +166,7 @@ function CrateSpawner:init(pings, state, pingChannel)
                 damageCreator = creator
             }
         end,
-
+        syncEntityArgs = {"default", "default", "default", "default"},
         createPingDataFromEntity = function(data)
             return data.id, data.location, crates[data.kind], data.validIn
         end,
@@ -204,10 +231,6 @@ function CrateSpawner:init(pings, state, pingChannel)
             models.world:removeChild(data.crateModel)
         end
     }
-
-    self.sharedWorldState:setBakedPings(pingChannel.createPingChannel("SWS", self.sharedWorldState:makePingStructure(), {}, function(_f, ...)
-        _f(...)
-    end))
 end
 
 function CrateSpawner:trySpawnCrate()
@@ -305,9 +328,18 @@ function CrateSpawner:tick()
             self:trySpawnCrate()
             for id, crate in self.sharedWorldState:iterateOwnEntities() do
                 if not positionIsSupported(crate.location) then
-                    self.pings.unsupportedCrate(id)
+                    self.unsupportedCrate(id)
                 end
             end
+        end
+
+        if self.destroyCrates then
+            for id in self.sharedWorldState:iterateOwnEntities() do
+                self.unsupportedCrate(id)
+                goto finish
+            end
+            self.destroyCrates = false
+            ::finish::
         end
 
         if self.state.load ~= nil then

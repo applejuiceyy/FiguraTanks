@@ -6,6 +6,8 @@ local WorldSlice     = require("tank.model.WorldSlice")
 local CrateCompass     = require("tank.model.CrateCompass")
 local EffectDisplay    = require("tank.model.EffectDisplay")
 
+
+---@params {tank:Tank,model:any}
 local HUD = class("HUD")
 
 
@@ -26,7 +28,8 @@ local function CustomPosition(m, arg)
 end
 
 function HUD:init(opt)
-    self.keywords = CustomKeywords:new(models.models.hud, util.injectGenericCustomKeywordsRegistry({
+    self.model = opt.model
+    self.keywords = CustomKeywords:new(opt.model, util.injectGenericCustomKeywordsRegistry({
         BottomLeftCorner = {},
         BottomCenterCorner = {},
         BottomRightCorner = {},
@@ -79,11 +82,11 @@ function HUD:init(opt)
 
     local tankModel = util.deepcopy(models.models.tank.body)
     self.paperModelRoller = util.group()
-    models.models.hud:addChild(self.paperModelRoller)
+    opt.model:addChild(self.paperModelRoller)
     self.paperModelRoller:addChild(tankModel)
 
     self.backgroundPaperModelRoller = util.group()
-    models.models.hud:addChild(self.backgroundPaperModelRoller)
+    opt.model:addChild(self.backgroundPaperModelRoller)
 
     self.paperModel = TankModel:new{
         tank = self.tank,
@@ -311,8 +314,8 @@ function HUD:render(happenings)
 end
 
 function HUD:dispose()
-    models.models.hud:removeChild(self.paperModelRoller)
-    models.models.hud:removeChild(self.backgroundPaperModelRoller)
+    self.model:removeChild(self.paperModelRoller)
+    self.model:removeChild(self.backgroundPaperModelRoller)
     for model, display in pairs(self.currentEffectsGroups) do
         display:dispose()
     end

@@ -3,7 +3,7 @@ local util      = require("tank.util")
 local collision = require("tank.collision")
 local settings    = require("tank.settings")
 
----@params {actions:{[string]:{arguments:string[],acknowledgementArguments:string[],onAcknowledgement:function,onAcknowledging:function,onAction:function}},dispose:function,rendering:{render:function,tick:function},publicFace:function,createPingDataFromEntity:function,fetchIdFromData:function,fetchIdFromPing:function,createEntityDataFromPing:function,name:string,avatarVars:fun(in:string):string}
+---@params {syncEntityArgs:table,pingChannel:PingChannel,actions:{[string]:{arguments:string[],acknowledgementArguments:string[],onAcknowledgement:function,onAcknowledging:function,onAction:function}},dispose:function,rendering:{render:function,tick:function},publicFace:function,createPingDataFromEntity:function,fetchIdFromData:function,fetchIdFromPing:function,createEntityDataFromPing:function,name:string,avatarVars:fun(in:string):string}
 local SharedWorldState     = class("SharedWorldState")
 
 local function getChain(obj, a, ...)
@@ -53,9 +53,10 @@ function SharedWorldState:init(opt)
         self.actions[actionName] = obj
     end
     
-    self.pings = nil
+    self.pings = opt.pingChannel:registerAll(self:makePingStructure())
 
     self.entities = {}
+    self.entityToId = {}
     self.publicFacingEntities = {}
 
     self.entityRenderers = {}
@@ -72,38 +73,50 @@ end
 --#region pings
 function SharedWorldState:makePingStructure()
     local pings = {
-        startTransmission = function()
-            self.hostIsSyncing = true
-            self.syncedEntities = {}
-        end,
+        startTransmission = {
+            arguments = {},
+            func = function()
+                self.hostIsSyncing = true
+                self.syncedEntities = {}
+            end,
+        },
 
-        endTransmission = function()
-            if self.hostIsSyncing then
-                for id in pairs(self.entities) do
-                    if not self.syncedEntities[id] then
-                        self:deleteEntityWithoutPing(id)
+        endTransmission = {
+            arguments = {},
+            func = function()
+                if self.hostIsSyncing then
+                    for id in pairs(self.entities) do
+                        if not self.syncedEntities[id] then
+                            self:deleteEntityWithoutPing(id)
+                        end
+                    end
+
+                    self.hostIsSyncing = false
+                    self.syncedEntities = {}
+                end
+            end
+        },
+
+        syncEntity = {
+            arguments = self.opt.syncEntityArgs,
+            func = function(...)
+                local id = self.opt.fetchIdFromPing(...)
+                self.syncedEntities[id] = true
+                if self.entities[id] == nil then
+                    local thing = self.opt.createEntityDataFromPing(...)
+                    if thing ~= nil then
+                        self:newEntityWithoutPing(thing)
                     end
                 end
-
-                self.hostIsSyncing = false
-                self.syncedEntities = {}
             end
-        end,
+        },
 
-        syncEntity = function(...)
-            local id = self.opt.fetchIdFromPing(...)
-            self.syncedEntities[id] = true
-            if self.entities[id] == nil then
-                local thing = self.opt.createEntityDataFromPing(...)
-                if thing ~= nil then
-                    self:newEntityWithoutPing(thing)
-                end
+        deleteEntity = {
+            arguments = {"default"},
+            func = function(id)
+                self:deleteEntityWithoutPing(id)
             end
-        end,
-
-        deleteEntity = function(id)
-            self:deleteEntityWithoutPing(id)
-        end
+        }
     }
 
     for actionName, data in pairs(self.actions) do
@@ -177,6 +190,10 @@ end
 
 function SharedWorldState:fetchOwnEntity(id)
     return self.entities[id]
+end
+
+function SharedWorldState:idFromEntity(data)
+    return self.entityToId[data]
 end
 
 function SharedWorldState:entityIsWaitingAction(uuid, id, name)
@@ -256,6 +273,7 @@ function SharedWorldState:newEntityWithoutPing(data)
     local id = self.opt.fetchIdFromData(data)
     local publicFacing = self.opt.publicFace(data)
     self.entities[id] = data
+    self.entityToId[data] = id
     self.publicFacingEntities[id] = publicFacing
     self:markEntityRenderDirty(id)
     self:markEntityTickDirty(id)
@@ -267,6 +285,7 @@ function SharedWorldState:deleteEntityWithoutPing(id)
         return
     end
     self.opt.dispose(self.entities[id])
+    self.entityToId[self.entities[id]] = nil
     self.entities[id] = nil
     self.publicFacingEntities[id] = nil
     self:updatePublicFacingEntities()

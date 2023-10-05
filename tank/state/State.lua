@@ -1,43 +1,138 @@
 local class              = require("tank.class")
-local Tank               = require("tank.Tank")
-local TankModel          = require("tank.model.TankModel")
 local UserTablet         = require("tank.model.UserTablet")
-local TankController     = require("tank.host.TankController")
-local keyboardController = require("tank.host.controller.keyboardController")
-local HUD                = require("tank.model.HUD")
 local util               = require("tank.util")
 local CrateSpawner       = require("tank.state.CrateSpawner")
-local pingChannel  = require("tank.state.createPingChannel")
-local WorldDamageDisplay  = require("tank.state.WorldDamageDisplay")
-local settings            = require("tank.settings")
+local WorldDamageDisplay = require("tank.state.WorldDamageDisplay")
+local settings           = require("tank.settings")
+local PingChannel        = require("tank.state.PingChannel")
+local TankComplex        = require("tank.state.TankComplex")
 
 ---@params 
 local State     = class("State")
 
-local loadTank
+local function createConverter(byField, main, specifier)
+    return {
+        deflate = function(tank)
+            if byField[tank] ~= nil then
+                return true, byField[tank]
+            end
+            return false, "Unknown id of " .. tostring(tank)
+        end,
 
-local pingChannelConverters = {}
+        inflate = function(id)
+            if main[id] ~= nil then
+                return true, specifier(main[id])
+            end
+            return false, "Unknown id " .. id
+        end
+    }
+end
+
 
 function State:init()
-    self.load = nil
-    self.syncTime = 100
+    ---@type {[string]:TankComplex}
+    self.loadedTanks = {}
+    self.tankToComplexId = {}
 
-    self.tabletPingChannel = pingChannel.createPingChannel("tablet", UserTablet.requiredPings, pingChannelConverters, function (_function, ...)
-        if self.load ~= nil then
-            _function(self.load.tablet, ...)
-        end
-    end)
+    self.currentlyFocusedTank = nil
 
-    self.crateSpawner = CrateSpawner:new(
-        pingChannel.createPingChannel("create-spawner", CrateSpawner.requiredPings, pingChannelConverters, function(_function, ...)
-            _function(self.crateSpawner, ...)
-        end),
+    self.tablet = UserTablet:new()
 
-        self,
-        pingChannel.inheritSettings("create-spawner", pingChannelConverters)
+
+    self.pingChannel = PingChannel:new(
+        "figuraTanks",
+        nil,
+        {
+            tank = createConverter(self.tankToComplexId, self.loadedTanks, function(s) return s.tank end),
+            default = {
+                inflate = function(e) return true, e end,
+                deflate = function(e) return true, e end
+            }
+        },
+        {}
     )
 
-    self.worldDamageDisplay = WorldDamageDisplay:new(self)
+    self.syncTankPing = self.pingChannel:register{
+        name = "syncTank",
+        arguments = {"default", "default", "default", "default", "default", "default", "default", "default", "default"},
+        func = function(id, ...)
+            if self.loadedTanks[id] == nil then
+                local complex = TankComplex:new(self)
+                self:setTankComplex(id, complex)
+            end
+            self.loadedTanks[id].tank:apply(...)
+        end
+    }
+
+    self.syncCriticalTankPing = self.pingChannel:register{
+        name = "syncCriticalTank",
+        arguments = {"default", "default", "default", "default", "default", "default", "default", "default", "default"},
+        func = function(id, ...)
+            if self.loadedTanks[id] == nil then
+                return
+            end
+            self.loadedTanks[id].tank:applyCritical(...)
+        end
+    }
+
+    
+    self.unloadTankPing = self.pingChannel:register{
+        name = "unloadTank",
+        arguments = {"default"},
+        func = function(id, ...)
+            if self.loadedTanks[id] == nil then
+                return
+            end
+
+            self.tankToComplexId[self.loadedTanks[id].tank] = nil
+            self.loadedTanks[id]:dispose()
+            self.loadedTanks[id] = nil
+        end
+    }
+
+    self.focusTankPing = self.pingChannel:register{
+        name = "focusTank",
+        arguments = {"default"},
+        func = function(id)
+            local o = self.loadedTanks[id]
+            if host:isHost() then
+                debugger:region("host only")
+                if self.currentlyFocusedTank ~= nil then
+                    self.loadedTanks[self.currentlyFocusedTank].tankController:unfocusTank()
+                end
+                o.tankController:focusTank()
+                debugger:region(nil)
+            end
+            self.currentlyFocusedTank = id
+            self.tablet:setFocus(o.tank)
+        end
+    }
+
+    self.unfocusTankPing = self.pingChannel:register{
+        name = "unfocusTank",
+        arguments = {},
+        func = function()
+            if self.currentlyFocusedTank == nil then
+                return
+            end
+            self.tablet:setFocus(nil)
+            if host:isHost() then
+                debugger:region("host only")
+                if self.currentlyFocusedTank ~= nil then
+                    self.loadedTanks[self.currentlyFocusedTank].tankController:unfocusTank()
+                end
+                debugger:region(nil)
+            end
+            self.currentlyFocusedTank = nil
+            self.tablet:setFocus(nil)
+        end
+    }
+
+    self.syncTime = 100
+
+    self.crateSpawner = CrateSpawner:new(self.pingChannel:inherit("create-spawner", {}, nil, {}, {}), self)
+
+    self.worldDamageDisplay = WorldDamageDisplay:new()
 
     self.itemManagers = {}
 
@@ -46,13 +141,7 @@ function State:init()
             local manager = require(path)
             local name = manager.name
 
-            local transformedPings = pingChannel.createPingChannel("manager-" .. manager.name, manager.requiredPings, pingChannelConverters, function(_function, ...)
-                if self.load ~= nil then
-                    _function(self.itemManagers[name], self.load.tank, ...)
-                end
-            end)
-
-            self.itemManagers[name] = manager:new(transformedPings, self)
+            self.itemManagers[name] = manager:new(self.pingChannel:inherit("manager-" .. name, {}, nil, {}, {}), self)
         end
     end
 
@@ -63,10 +152,6 @@ function State:init()
     end
 
     self.bulletDestroyBlocksWarning = 121
-end
-
-function State:createPingChannel(name, requiredPings, _function)
-    return createPingChannel(name, requiredPings, pingChannelConverters, _function)
 end
 
 function State:tick()
@@ -84,28 +169,35 @@ function State:tick()
     for name, manager in pairs(self.itemManagers) do
         manager:tick()
     end
-    if self.load ~= nil then
-        self.load.tankModel:beforeTankTick(self.load.happenings)
-        self.load.tablet:beforeTankTick(self.load.happenings)
+
+    local store = {}
+    if self.currentlyFocusedTank ~= nil then
+        self.tablet:beforeTankTick(self.loadedTanks[self.currentlyFocusedTank].happenings)
+    end
+    for id, tankComplex in pairs(self.loadedTanks) do
+        tankComplex.tankModel:beforeTankTick(tankComplex.happenings)
         if host:isHost() then
             debugger:region("host only")
-            self.load.HUD:beforeTankTick(self.load.happenings)
+            tankComplex.HUD:beforeTankTick(tankComplex.happenings)
             debugger:region(nil)
         end
-        self.load.happenings = self.load.tank:tick()
-        self.load.tankModel:afterTankTick(self.load.happenings)
-        self.load.tablet:afterTankTick(self.load.happenings)
+        tankComplex.happenings = tankComplex.tank:tick()
+        tankComplex.tankModel:afterTankTick(tankComplex.happenings)
         if host:isHost() then
             debugger:region("host only")
-            self.load.HUD:afterTankTick(self.load.happenings)
+            tankComplex.HUD:afterTankTick(tankComplex.happenings)
             debugger:region(nil)
         end
 
-        local highCollisionShape, lowCollisionShape = self.load.tank:getCollisionShape()
-        avatar:store("entities", {
-            {hitbox = {lowCollisionShape, highCollisionShape}, pos = self.load.tank.pos}
-        })
+        local highCollisionShape, lowCollisionShape = tankComplex.tank:getCollisionShape()
+
+        table.insert(store, {hitbox = {lowCollisionShape, highCollisionShape}, pos = tankComplex.tank.pos})
     end
+    if self.currentlyFocusedTank ~= nil then
+        self.tablet:afterTankTick(self.loadedTanks[self.currentlyFocusedTank].happenings)
+    end
+
+    avatar:store("entities", store)
 
     if host:isHost() then
         debugger:region("host only")
@@ -118,11 +210,11 @@ function State:tick()
                 self.syncTime = 100
             end
         end
-
+        --[[
         if self.load ~= nil and (self.tankPositionIsDirty or world.getTime() % 40 == 0) then
             pings.syncCriticalTank(self.load.tank:serialiseCritical())
             self.tankPositionIsDirty = false
-        end
+        end]]
         debugger:region(nil)
     end
 end
@@ -131,28 +223,27 @@ function State:markTankPositionDirty()
     self.tankPositionIsDirty = true
 end
 
-function State:populateTankQueue()
-    local dependentConsumer = util.dependsOn(self.syncQueueConsumer, function()
-        return self.load ~= nil
+function State:populateTankConsumer(id, complex, consumer)
+    local dependentConsumer = util.dependsOn(consumer, function()
+        return not complex.disposed
     end)
 
     dependentConsumer(function()
-        pings.syncTank(self.load.tank:serialise())
+        self.syncTankPing(id, complex.tank:serialise())
     end)
 
-    if self.load.tank.currentWeapon ~= nil then
-        self.load.tank.currentWeapon:populateSyncQueue(dependentConsumer)
+    if complex.tank.currentWeapon ~= nil then
+        complex.tank.currentWeapon:populateSyncQueue(dependentConsumer)
     end
 
-    for id, effect in pairs(self.load.tank.effects) do
+    for id, effect in pairs(complex.tank.effects) do
         effect:populateSyncQueue(dependentConsumer)
     end
 end
 
 function State:populateQueue()
-    if self.load ~= nil then
-        self:populateTankQueue()
-        self.load.tablet:populateSyncQueue(self.syncQueueConsumer)
+    for id, complex in pairs(self.loadedTanks) do
+        self:populateTankConsumer(id, complex, self.syncQueueConsumer)
     end
     self.crateSpawner:populateSyncQueue(self.syncQueueConsumer)
 end
@@ -162,37 +253,58 @@ function State:render()
         manager:render()
     end
     self.crateSpawner:render()
-    if self.load ~= nil and self.load.happenings ~= nil then
-        self.load.tankModel:render(self.load.happenings)
-        self.load.tablet:render(self.load.happenings)
-        if host:isHost() then
-            debugger:region("host only")
-            self.load.tankController:render(self.load.happenings)
-            self.load.HUD:render(self.load.happenings)
-            debugger:region(nil)
+    for id, tankComplex in pairs(self.loadedTanks) do
+        if tankComplex.happenings ~= nil then
+            tankComplex.tankModel:render(tankComplex.happenings)
+            if host:isHost() then
+                debugger:region("host only")
+                tankComplex.tankController:render(tankComplex.happenings)
+                tankComplex.HUD:render(tankComplex.happenings)
+                debugger:region(nil)
+            end
         end
+    end
+    if self.currentlyFocusedTank ~= nil and self.loadedTanks[self.currentlyFocusedTank].happenings ~= nil then
+        self.tablet:render(self.loadedTanks[self.currentlyFocusedTank].happenings)
     end
 end
 
 function State:mouseMove(x, y)
-    if self.load ~= nil then
-        return self.load.tankController:offsetThirdPersonCamera(x, y)
+    if self.currentlyFocusedTank ~= nil then
+        return self.loadedTanks[self.currentlyFocusedTank].tankController:offsetThirdPersonCamera(x, y)
     end
     return false
 end
 
-function State:isLoaded()
-    return self.load ~= nil
-end
-
-function State:loadTank()
+function State:loadTank(id)
     if settings.bulletsCanBreakBlocks then
         self.bulletDestroyBlocksWarning = 0
     end
-    loadTank()
-    self.load.tank.pos = player:getPos()
-    self.load.tank:flushLerps()
+    local complex = TankComplex:new(self)
+    complex.tank.pos = player:getPos()
+    complex.tank:flushLerps()
+    self:setTankComplex(id, complex)
     self.syncTime = 0
+end
+
+local abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+function State:generateId()
+    local result
+    repeat
+        local v = {}
+        for i = 1, 5 do
+            local s = math.floor(math.random() * string.len(abc)) + 1
+            table.insert(v, string.sub(abc, s, s))
+        end
+        result = table.concat(v, "")
+    until self.loadedTanks[result] == nil
+    return result
+end
+
+function State:setTankComplex(id, complex)
+    self.loadedTanks[id] = complex
+    self.tankToComplexId[complex.tank] = id
 end
 
 function State:unloadTank()
@@ -200,110 +312,22 @@ function State:unloadTank()
     pings.removeTank()
 end
 
-function State:focusTank()
-    pings.focusTank()
+function State:focusTank(id)
+    self.focusTankPing(id)
 end
 
 function State:unfocusTank()
-    pings.unfocusTank()
+    self.unfocusTankPing()
 end
 
 local state = State:new()
 
-function loadTank()
-    state.load = {}
-
-    state.load.tank = Tank:new(function()
-        local hits = {}
-        for name, manager in pairs(state.itemManagers) do
-            manager:handleWeaponDamages(hits, state.load.tank)
-        end
-        return hits
-    end)
-    state.itemManagers["default:tntgun"]:_applyAfterPing(state.load.tank)
-    local tankModel = util.deepcopy(models.models.tank.body)
-    state.load.modelGroup = tankModel
-    models.world:addChild(tankModel)
-
-    state.load.tankModel = TankModel:new{
-        tank = state.load.tank,
-        model = tankModel
-    }
-    state.load.tablet = UserTablet:new(
-        state.tabletPingChannel,
-        {tank = state.load.tank}
-    )
-
-
-    if host:isHost() then
-        debugger:region("host only")
-        state.load.tankController = TankController:new{
-            tank = state.load.tank,
-            tankModel = state.load.tankModel
-        }
-        state.load.HUD = HUD:new{
-            tank = state.load.tank
-        }
-        
-        models.models.hud:setVisible(true)
-        debugger:region(nil)
-    else
-        state.load.tank.controller = keyboardController
-    end
-
-end
-
 function pings.syncTank(...)
-    if state.load == nil then
-        loadTank()
-    end
-    state.load.tank:apply(...)
+
 end
 
 function pings.syncCriticalTank(...)
-    if state.load == nil then
-        return
-    end
-    state.load.tank:applyCritical(...)
-end
 
-function pings.removeTank()
-    if state.load ~= nil then
-        state.load.tankModel:dispose()
-        state.load.tablet:dispose()
-        if host:isHost() then
-            debugger:region("host only")
-            state.load.HUD:dispose()
-            state.load.tankController:dispose()
-            debugger:region(nil)
-        end
-        models.world:removeChild(state.load.modelGroup)
-        models.models.hud:setVisible(false)
-        state.load = nil
-        avatar:store("entities", {})
-    end
-end
-
-function pings.focusTank()
-    if state.load ~= nil then
-        if host:isHost() then
-            debugger:region("host only")
-            state.load.tankController:focusTank()
-            debugger:region(nil)
-        end
-        state.load.tablet:equip()
-    end
-end
-
-function pings.unfocusTank()
-    if state.load ~= nil then
-        if host:isHost() then
-            debugger:region("host only")
-            state.load.tankController:unfocusTank()
-            debugger:region(nil)
-        end
-        state.load.tablet:unequip()
-    end
 end
 
 _G.state = state
