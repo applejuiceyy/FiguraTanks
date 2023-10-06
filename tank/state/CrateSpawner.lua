@@ -91,8 +91,10 @@ function CrateSpawner:init(pingChannel, state)
                     self.sharedWorldState:deleteEntityWithoutPing(id)
                 end,
                 onAcknowledging = function(id) end,
-                onAction = function(uuid, id, data)
-                    self:applyEffect(uuid, data.kind)
+                onAction = function(pd, uuid, id, data)
+                    if not pd.disposed[1] then
+                        self:applyEffect(pd.tank, uuid, data.kind)
+                    end
                 end
             }
         },
@@ -243,11 +245,12 @@ function CrateSpawner:trySpawnCrate()
     local y = math.random(-5, 5)
     local z = math.random(-20, 20)
 
-    local center = player:getPos():floor()
-
-    if self.state.load ~= nil and math.random() > 0.5 then
-        center = self.state.load.tank.pos:copy():floor()
+    local candidates = {player:getPos():floor()}
+    for _, complex in pairs(self.state.loadedTanks) do
+        table.insert(candidates, complex.tank.pos)
     end
+
+    local center = candidates[math.random(1, #candidates)]
 
     local place = vec(x, y, z) + center + vec(math.random() - 0.5, 0, math.random() - 0.5)
 
@@ -279,8 +282,8 @@ function CrateSpawner:populateSyncQueue(consumer)
     self.sharedWorldState:populateSyncQueue(consumer)
 end
 
-function CrateSpawner:testCrateReach()
-    local tank = self.state.load.tank
+function CrateSpawner:testCrateReach(tankDispose, tank)
+
     local highCollisionShape, lowCollisionShape = tank:getCollisionShape()
 
     for uuid, id, data in self.sharedWorldState:iterateAllEntities() do
@@ -299,7 +302,7 @@ function CrateSpawner:testCrateReach()
             end
 
             if data.validIn <= world.getTime() then
-                self.sharedWorldState:doAction(uuid, id, "tankReach")
+                self.sharedWorldState:doAction({disposed = tankDispose, tank = tank}, uuid, id, "tankReach")
             end
         end
     end
@@ -307,7 +310,7 @@ end
 
 
 
-function CrateSpawner:applyEffect(owner, id)
+function CrateSpawner:applyEffect(tank, owner, id)
     if not crates[id] then
         host:setActionbar(
             string.format(
@@ -318,7 +321,7 @@ function CrateSpawner:applyEffect(owner, id)
         return
     end
     
-    self.state.itemManagers[id]:apply(self.state.load.tank)
+    self.state.itemManagers[id]:apply(tank)
 end
 
 function CrateSpawner:tick()
@@ -342,8 +345,8 @@ function CrateSpawner:tick()
             ::finish::
         end
 
-        if self.state.load ~= nil then
-            self:testCrateReach()
+        for _, complex in pairs(self.state.loadedTanks) do
+            self:testCrateReach(complex.disposed, complex.tank)
         end
         debugger:region(nil)
     end

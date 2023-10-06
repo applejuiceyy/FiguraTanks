@@ -1,26 +1,27 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
 
+---@params FlameThrower Tank number
 local FlameThrowerInstance = class("FlameThrowerInstance")
 
-function FlameThrowerInstance:init(owner, tank, bulletsRemaining)
+function FlameThrowerInstance:init(owner, tank, charge)
     self.owner = owner
     self.tank = tank
 
-    self.charge = 1
+    self.charge = charge
     self.flaming = false
 end
 
 function FlameThrowerInstance:tick()
     if self.tank.controller.shoot ~= self.flaming then
         self.flaming = self.tank.controller.shoot
-        self.owner.pings.setFlaming(self.flaming)
+        self.owner.setFlaming(self.tank, self.flaming)
     end
     if self.flaming then
-        self.charge = self.charge - 0.005
+        self.charge = self.charge - 0.01
 
         if self.charge <= 0 then
-            self.owner.pings.setFlaming(false)
+            self.owner.setFlaming(self.tank, false)
             self.owner.state.itemManagers["default:tntgun"]:apply(self.tank)
         end
     end
@@ -30,7 +31,7 @@ end
 function FlameThrowerInstance:populateSyncQueue(consumer)
     consumer(function()
         if self.tank.currentWeapon == self then
-            self.owner.pings.equip(self.charge)
+            self.owner.equip(self.tank, self.charge)
         end
     end)
 end
@@ -101,5 +102,10 @@ end
 function FlameThrowerInstance:tankWeaponDispose()
     self.owner.flamingTanks[self.tank] = nil
 end
+
+function FlameThrowerInstance:tankFetchControlsInvoked(a, b, c)
+    return a * 0.9, b * 0.9, c * 0.9
+end
+
 
 return FlameThrowerInstance

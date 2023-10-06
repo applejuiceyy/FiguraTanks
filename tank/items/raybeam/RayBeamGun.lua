@@ -5,7 +5,7 @@ local collision = require("tank.collision")
 local settings       = require("tank.settings")
 
 
-
+---@params PingChannel State
 local RayBeamGun = class("RayBeamGun")
 
 
@@ -13,7 +13,6 @@ RayBeamGun.name = "default:raybeam"
 RayBeamGun.rayAvatarPath = "__FiguraTanks_" .. RayBeamGun.name .. "_rays"
 RayBeamGun.requiredPings = {
     startShooting = function(self, tank)
-        self:_startShootingAfterPing(tank)
     end,
 
     shoot = function(self, tank, pos, dir)
@@ -31,6 +30,34 @@ RayBeamGun.requiredPings = {
 function RayBeamGun:init(pings, state)
     self.pings = pings
     self.state = state
+
+    self.startShootingPing = pings:register{
+        name = "startShooting",
+        arguments = {"tank"},
+        func = function(tank)
+            self:_startShootingAfterPing(tank)
+        end
+    }
+
+    self.shootPing = pings:register{
+        name = "shoot",
+        arguments = {"tank", "default", "default"},
+        func = function(tank, pos, dir)
+            self:_shootAfterPing(tank, pos, dir)
+        end
+    }
+
+    self.equipPing = pings:register{
+        name = "equip",
+        arguments = {"tank", "default"},
+        func = function(tank, bulletsRemaining)
+            if tank.currentWeapon == nil or tank.currentWeapon.class ~= RayBeamGunInstance then
+                return self:_applyAfterPing(tank, bulletsRemaining)
+            end
+            tank.currentWeapon.bulletsRemaining = bulletsRemaining
+        end
+    }
+
 
     self.rays = {}
     self.avatarVars = {}
@@ -95,7 +122,7 @@ function RayBeamGun:tick()
 end
 
 function RayBeamGun:apply(tank)
-    self.pings.equip(4)
+    self.equipPing(tank, 4)
 end
 
 
@@ -103,12 +130,12 @@ function RayBeamGun:_applyAfterPing(tank, bulletsRemaining)
     tank:setWeapon(RayBeamGunInstance:new(self, tank, bulletsRemaining))
 end
 
-function RayBeamGun:startShooting()
-    self.pings.startShooting()
+function RayBeamGun:startShooting(tank)
+    self.startShootingPing(tank)
 end
 
 function RayBeamGun:shoot(tank)
-    self.pings.shoot(tank.pos + vec(0, 0.3, 0), tank.nozzle + vec(tank.angle, 0))
+    self.shootPing(tank, tank.pos + vec(0, 0.3, 0), tank.nozzle + vec(tank.angle, 0))
 end
 
 

@@ -57,7 +57,9 @@ function State:init()
         arguments = {"default", "default", "default", "default", "default", "default", "default", "default", "default"},
         func = function(id, ...)
             if self.loadedTanks[id] == nil then
-                local complex = TankComplex:new(self)
+                local complex = TankComplex:new(self, self.pingChannel:inherit("TankComplex", {"default"}, function(id)
+                    return self.loadedTanks[id].pingChannel
+                end, {id}, {}))
                 self:setTankComplex(id, complex)
             end
             self.loadedTanks[id].tank:apply(...)
@@ -87,6 +89,11 @@ function State:init()
             self.tankToComplexId[self.loadedTanks[id].tank] = nil
             self.loadedTanks[id]:dispose()
             self.loadedTanks[id] = nil
+
+            if self.currentlyFocusedTank == id then
+                self.tablet:setFocus(nil)
+                self.currentlyFocusedTank = nil
+            end
         end
     }
 
@@ -99,8 +106,10 @@ function State:init()
                 debugger:region("host only")
                 if self.currentlyFocusedTank ~= nil then
                     self.loadedTanks[self.currentlyFocusedTank].tankController:unfocusTank()
+                    self.loadedTanks[self.currentlyFocusedTank].hudModel:setVisible(false)
                 end
                 o.tankController:focusTank()
+                o.hudModel:setVisible(true)
                 debugger:region(nil)
             end
             self.currentlyFocusedTank = id
@@ -115,11 +124,11 @@ function State:init()
             if self.currentlyFocusedTank == nil then
                 return
             end
-            self.tablet:setFocus(nil)
             if host:isHost() then
                 debugger:region("host only")
                 if self.currentlyFocusedTank ~= nil then
                     self.loadedTanks[self.currentlyFocusedTank].tankController:unfocusTank()
+                    self.loadedTanks[self.currentlyFocusedTank].hudModel:setVisible(false)
                 end
                 debugger:region(nil)
             end
@@ -171,30 +180,30 @@ function State:tick()
     end
 
     local store = {}
+    local l
     if self.currentlyFocusedTank ~= nil then
-        self.tablet:beforeTankTick(self.loadedTanks[self.currentlyFocusedTank].happenings)
+        l = self.loadedTanks[self.currentlyFocusedTank]
+        self.tablet:beforeTankTick(l.happenings)
+        if host:isHost() then
+            debugger:region("host only")
+            l.HUD:beforeTankTick(l.happenings)
+            debugger:region(nil)
+        end
     end
     for id, tankComplex in pairs(self.loadedTanks) do
-        tankComplex.tankModel:beforeTankTick(tankComplex.happenings)
-        if host:isHost() then
-            debugger:region("host only")
-            tankComplex.HUD:beforeTankTick(tankComplex.happenings)
-            debugger:region(nil)
-        end
-        tankComplex.happenings = tankComplex.tank:tick()
-        tankComplex.tankModel:afterTankTick(tankComplex.happenings)
-        if host:isHost() then
-            debugger:region("host only")
-            tankComplex.HUD:afterTankTick(tankComplex.happenings)
-            debugger:region(nil)
-        end
+        tankComplex:tick()
 
         local highCollisionShape, lowCollisionShape = tankComplex.tank:getCollisionShape()
 
         table.insert(store, {hitbox = {lowCollisionShape, highCollisionShape}, pos = tankComplex.tank.pos})
     end
     if self.currentlyFocusedTank ~= nil then
-        self.tablet:afterTankTick(self.loadedTanks[self.currentlyFocusedTank].happenings)
+        self.tablet:afterTankTick(l.happenings)
+        if host:isHost() then
+            debugger:region("host only")
+            l.HUD:afterTankTick(l.happenings)
+            debugger:region(nil)
+        end
     end
 
     avatar:store("entities", store)
@@ -210,11 +219,7 @@ function State:tick()
                 self.syncTime = 100
             end
         end
-        --[[
-        if self.load ~= nil and (self.tankPositionIsDirty or world.getTime() % 40 == 0) then
-            pings.syncCriticalTank(self.load.tank:serialiseCritical())
-            self.tankPositionIsDirty = false
-        end]]
+
         debugger:region(nil)
     end
 end
@@ -225,7 +230,7 @@ end
 
 function State:populateTankConsumer(id, complex, consumer)
     local dependentConsumer = util.dependsOn(consumer, function()
-        return not complex.disposed
+        return not complex.disposed[1]
     end)
 
     dependentConsumer(function()
@@ -259,13 +264,17 @@ function State:render()
             if host:isHost() then
                 debugger:region("host only")
                 tankComplex.tankController:render(tankComplex.happenings)
-                tankComplex.HUD:render(tankComplex.happenings)
                 debugger:region(nil)
             end
         end
     end
     if self.currentlyFocusedTank ~= nil and self.loadedTanks[self.currentlyFocusedTank].happenings ~= nil then
         self.tablet:render(self.loadedTanks[self.currentlyFocusedTank].happenings)
+        if host:isHost() then
+            debugger:region("host only")
+            self.loadedTanks[self.currentlyFocusedTank].HUD:render(self.loadedTanks[self.currentlyFocusedTank].happenings)
+            debugger:region(nil)
+        end
     end
 end
 
@@ -280,11 +289,13 @@ function State:loadTank(id)
     if settings.bulletsCanBreakBlocks then
         self.bulletDestroyBlocksWarning = 0
     end
-    local complex = TankComplex:new(self)
+    local complex = TankComplex:new(self, self.pingChannel:inherit("TankComplex", {"default"}, function(id)
+        return self.loadedTanks[id].pingChannel
+    end, {id}, {}))
     complex.tank.pos = player:getPos()
     complex.tank:flushLerps()
     self:setTankComplex(id, complex)
-    self.syncTime = 0
+    self:populateTankConsumer(id, complex, self.syncQueueConsumer)
 end
 
 local abc = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -307,9 +318,8 @@ function State:setTankComplex(id, complex)
     self.tankToComplexId[complex.tank] = id
 end
 
-function State:unloadTank()
-    self.syncTime = math.huge
-    pings.removeTank()
+function State:unloadTank(id)
+    self.unloadTankPing(id)
 end
 
 function State:focusTank(id)
@@ -321,14 +331,6 @@ function State:unfocusTank()
 end
 
 local state = State:new()
-
-function pings.syncTank(...)
-
-end
-
-function pings.syncCriticalTank(...)
-
-end
 
 _G.state = state
 

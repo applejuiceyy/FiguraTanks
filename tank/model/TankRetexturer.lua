@@ -1,6 +1,6 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
-local Event      = require("tank.events.events")
+local Event      = require("tank.events.Event")
 local CustomKeywords = require("tank.model.CustomKeywords")
 
 ---@params any

@@ -10,15 +10,6 @@ local TNTGun = class("TNTGun")
 
 TNTGun.name = "default:tntgun"
 TNTGun.explosionAvatarPath = "__FiguraTanks_" .. TNTGun.name .. "_explosion"
-TNTGun.requiredPings = {
-    shoot = function(self, tank, pos, vel)
-        self:_shootAfterPing(tank, pos, vel)
-    end,
-
-    equip = function(self, tank)
-
-    end
-}
 
 function TNTGun:init(pings, state)
     self.pings = pings
@@ -106,7 +97,6 @@ function TNTGun:handleWeaponDamages(hits, tank)
 end
 
 function TNTGun:_shootAfterPing(tank, pos, vel)
-    print(tank, pos, vel)
     sounds:playSound("minecraft:entity.shulker.shoot", pos)
     local bullet = Bullet:new(pos, vel)
     self.bullets[bullet] = true

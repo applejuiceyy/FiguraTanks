@@ -33,7 +33,6 @@ function UserTablet:disband()
 end
 
 function UserTablet:setFocus(tank)
-    print(tank)
     if tank ~= self.currentlyFocusedTank then
         if self.currentlyFocusedTank ~= nil then
             self:disband()

@@ -1,7 +1,9 @@
+if debugger == nil then
+    debugger = {marker = function(_,__) end, region = function(_,__) end}
+end
+
 local State = require "tank.state.State"
 local util  = require "tank.util"
-
-
 
 models.world:setParentType("WORLD")
 

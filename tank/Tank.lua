@@ -1,6 +1,7 @@
-local Event     = require("tank.events.events")
+local Event     = require("tank.events.Event")
 local collision = require("tank.collision")
 local class     = require("tank.class")
+local settings  = require("tank.settings")
 
 ---@params fun():table
 local Tank      = class("Tank")
@@ -248,12 +249,17 @@ function Tank:fetchControls()
             targetVelocity = targetVelocity - vectors.rotateAroundAxis(self.angle, vec(0.2, 0, 0), vec(0, 1, 0))
         end
 
+        local direction = 1
+        if settings.backwardsInvertControls and self.controller.backwards and not self.controller.forwards then
+            direction = -1
+        end
+
         if self.controller.left then
-            targetAngleMomentum = targetAngleMomentum + 5
+            targetAngleMomentum = targetAngleMomentum + 5 * direction
         end
 
         if self.controller.right then
-            targetAngleMomentum = targetAngleMomentum - 5
+            targetAngleMomentum = targetAngleMomentum - 5 * direction
         end
         if self.controller.nozzleup then
             nozzleMomentum.y = nozzleMomentum.y - 2
@@ -342,7 +348,6 @@ function Tank:tick()
     self.dash = math.clamp(self.dash, 0, 1)
 
     local velocity = self.vel:length()
-    friction = friction * 0.98
     local inverseFriction = 1 - friction
     inverseFriction = inverseFriction / math.pow(velocity + 1, 2)
     friction = 1 - inverseFriction

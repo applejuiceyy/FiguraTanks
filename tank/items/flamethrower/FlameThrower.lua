@@ -5,28 +5,35 @@ local collision = require("tank.collision")
 local settings       = require("tank.settings")
 
 
-
+---@params PingChannel State
 local FlameThrower = class("FlameThrower")
 
 
 FlameThrower.name = "default:flamethrower"
 FlameThrower.rayAvatarPath = "__FiguraTanks_" .. FlameThrower.name .. "_flame"
-FlameThrower.requiredPings = {
-    setFlaming = function(self, tank, state)
-        self:_setFlamingAfterPing(tank, state)
-    end,
-
-    equip = function(self, tank, charge)
-        if tank.currentWeapon == nil or tank.currentWeapon.class ~= FlameThrowerInstance then
-            return self:_applyAfterPing(tank, charge)
-        end
-        tank.currentWeapon.charge = charge
-    end
-}
 
 function FlameThrower:init(pings, state)
     self.pings = pings
     self.state = state
+
+    self.setFlaming = pings:register{
+        name = "setFlaming",
+        arguments = {"tank", "default"},
+        func = function(tank, flameState)
+            self:_setFlamingAfterPing(tank, flameState)
+        end
+    }
+
+    self.equip = pings:register{
+        name = "equip",
+        arguments = {"tank", "default"},
+        func = function(tank, charge)
+            if tank.currentWeapon == nil or tank.currentWeapon.class ~= FlameThrowerInstance then
+                return self:_applyAfterPing(tank, charge)
+            end
+            tank.currentWeapon.charge = charge
+        end
+    }
 
     self.flamingTanks = {}
     self.bigParticles = {}
@@ -89,12 +96,12 @@ function FlameThrower:spawnBigParticle(pos, vel)
 end
 
 function FlameThrower:apply(tank)
-    self.pings.equip(1)
+    self.equip(tank, 1)
 end
 
 
-function FlameThrower:_applyAfterPing(tank, bulletsRemaining)
-    tank:setWeapon(FlameThrowerInstance:new(self, tank, bulletsRemaining))
+function FlameThrower:_applyAfterPing(tank, charge)
+    tank:setWeapon(FlameThrowerInstance:new(self, tank, charge))
 end
 
 

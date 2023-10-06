@@ -123,7 +123,7 @@ function SharedWorldState:makePingStructure()
         pings["doAction" .. actionName] = {
             arguments = {"default", "default", table.unpack(data.opt.arguments)},
 
-            fn = function(uuid, id, ...)
+            func = function(uuid, id, ...)
                 setChain(data.publicFacingPerforms, {...}, uuid, id)
             end
         }
@@ -131,7 +131,7 @@ function SharedWorldState:makePingStructure()
         pings["actionAck" .. actionName] = {
             arguments = {"default", "default", table.unpack(data.opt.acknowledgementArguments)},
 
-            fn = function(uuid, id, ...)
+            func = function(uuid, id, ...)
                 data.opt.onAcknowledgement(id, self.entities[id], ...)
                 setChain(data.performAcknowledgements, {...}, uuid, id)
             end
@@ -217,7 +217,7 @@ end
 --#endregion
 
 --#region actions
-function SharedWorldState:doAction(uuid, id, name, ...)
+function SharedWorldState:doAction(privateData, uuid, id, name, ...)
     if not host:isHost() then
         return error("perfoming actions only available on host", 2)
     end
@@ -229,6 +229,7 @@ function SharedWorldState:doAction(uuid, id, name, ...)
     local data = self.actions[name]
 
     setChain(data.perform, {
+        privateData = privateData,
         waitingSince = world.getTime(),
         entityData = self:fetchEntity(uuid, id)
     }, uuid, id)
@@ -332,7 +333,7 @@ function SharedWorldState:processAction(actionName, data)
     for waitingForUUID, thingsWaiting in pairs(data.perform) do
         for id, waitingData in pairs(thingsWaiting) do
             if waitingData.waitingSince < world.getTime() - 100 then
-                print("Tried performing action but got no acknowledgment")
+                print("Tried performing action on entity but host did not answer in 100 ticks, maybe they can't see you or they have errored?")
                 o[{waitingForUUID, id}] = true
             end
         end
@@ -370,10 +371,11 @@ function SharedWorldState:processAcknowledgements(actionName, actionData, ackUUI
     local stuff = getChain(avatarVars, avatarActionName, player:getUUID())
     if stuff ~= nil then
         for id, data in pairs(stuff) do
-            if getChain(actionData.perform, ackUUID, id) == nil then
+            local o = getChain(actionData.perform, ackUUID, id)
+            if o == nil then
                 print("Got action acknowledgment for unknown action")
             else
-                actionData.opt.onAction(ackUUID, id, getChain(actionData.perform, ackUUID, id).entityData, table.unpack(data))
+                actionData.opt.onAction(o.privateData, ackUUID, id, o.entityData, table.unpack(data))
                 deleteChain(actionData.perform, ackUUID, id)
             end
         end

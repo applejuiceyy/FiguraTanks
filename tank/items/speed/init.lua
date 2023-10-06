@@ -2,31 +2,35 @@ local class             = require("tank.class")
 local util              = require("tank.util")
 
 
+---@params PingChannel State
 local Speed             = class("Speed")
+---@params Speed Tank number integer
 local SpeedInstance     = class("SpeedInstance")
-local SpeedInstanceIcon = class("SpeedInstanceIcon")
 
 Speed.name = "default:speed"
-Speed.requiredPings = {
-    speed = function(self, tank, lifespan, id)
-        if not tank:hasEffect(id) then
-            tank:addEffect(id, SpeedInstance:new(self, tank, lifespan, id))
-        end
-    end
-}
 
 local texture = textures:fromVanilla(Speed.name .. "--speed", "textures/mob_effect/speed.png")
 
 function Speed:init(pings, state)
     self.pings = pings
     self.state = state
+
+    self.speedPing = pings:register{
+        name = "equip",
+        arguments = {"tank", "default", "default"},
+        func = function(tank, lifespan, id)
+            if not tank:hasEffect(id) then
+                tank:addEffect(id, SpeedInstance:new(self, tank, lifespan, id))
+            end
+        end
+    }
 end
 
 function Speed:render() end
 function Speed:tick() end
 
 function Speed:apply(tank)
-    self.pings.speed(200, util.intID())
+    self.speedPing(tank, 200, util.intID())
 end
 
 function Speed:handleWeaponDamages(hits, tank)
@@ -60,7 +64,7 @@ end
 function SpeedInstance:populateSyncQueue(consumer)
     consumer(function()
         if self.tank:hasEffect(self.id) then
-            self.owner.pings.speed(self.lifespan, self.id)
+            self.owner.speedPing(self.tank, self.lifespan, self.id)
         end
     end)
 end

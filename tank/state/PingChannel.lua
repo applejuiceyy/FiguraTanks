@@ -71,13 +71,11 @@ function PingChannel:handle(name, arguments, pointer)
         things.func(table.unpack(converted))
         return
     end
-    if #self.dispatchArguments == 0 then
-        local child = self.childRouting[name]
+    local child = self.childRouting[name]
+    if #child.dispatchArguments == 0 then
         return child.dispatch():handle(child.name, arguments, pointer)
     else
-        local converted, newPointer = convertArguments(arguments, pointer, self.dispatchArguments, self.converters, "inflate")
-
-        local child = self.childRouting[name]
+        local converted, newPointer = convertArguments(arguments, pointer, child.dispatchArguments, self.converters, "inflate")
 
         return child.dispatch(table.unpack(converted))
         :handle(child.name, arguments, newPointer)
@@ -87,7 +85,11 @@ end
 function PingChannel:inherit(name, dispatchArguments, dispatch, resolve, converters)
     local channel
     channel = PingChannel:new(name, function(pingName)
-        self.childRouting[name .. "$" .. pingName] = {dispatch = dispatch or function() return channel end, name = pingName}
+        self.childRouting[name .. "$" .. pingName] = {
+            dispatchArguments = dispatchArguments,
+            dispatch = dispatch or function() return channel end,
+            name = pingName
+        }
         local og = self.backer(name .. "$" .. pingName)
         return function(...)
             if #dispatchArguments == 0 then

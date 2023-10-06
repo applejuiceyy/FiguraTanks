@@ -5,12 +5,25 @@ local TankModel = require "tank.model.TankModel"
 local TankController = require "tank.host.TankController"
 local keyboardController = require "tank.host.controller.keyboardController"
 local HUD                = require "tank.model.HUD"
+local Event              = require "tank.events.Event"
 
----@params State
+---@params State PingChannel
 local TankComplex = class("TankComplex")
 
-function TankComplex:init(state)
-    self.disposed = false
+function TankComplex:init(state, pingChannel)
+    ---@type {[1]:boolean}
+    self.disposed = {false}
+    self.pingChannel = pingChannel
+
+    self.syncCriticalTankPing = self.pingChannel:register{
+        name = "syncCriticalTank",
+        arguments = {"default", "default", "default", "default", "default"},
+        func = function(...)
+            self.tank:applyCritical(...)
+        end
+    }
+
+
     self.tank = Tank:new(function()
         local hits = {}
         for name, manager in pairs(state.itemManagers) do
@@ -30,14 +43,6 @@ function TankComplex:init(state)
 
     self.happenings = nil
 
-
-    --[[
-    state.load.tablet = UserTablet:new(
-        state.tabletPingChannel,
-        {tank = state.load.tank}
-    )]]
-
-
     if host:isHost() then
         debugger:region("host only")
         self.tankController = TankController:new{
@@ -53,7 +58,7 @@ function TankComplex:init(state)
         models:addChild(self.hudModel)
         self.hudModel:setParentType("NONE")
         self.hudModel:setParentType("HUD")
-        self.hudModel:setVisible(true)
+        self.hudModel:setVisible(false)
         debugger:region(nil)
     else
         self.tank.controller = keyboardController
@@ -61,9 +66,21 @@ function TankComplex:init(state)
 
 end
 
+function TankComplex:tick()
+    self.tankModel:beforeTankTick(self.happenings)
+    
+    self.happenings = self.tank:tick()
+    self.tankModel:afterTankTick(self.happenings)
+
+    if self.tankPositionIsDirty or world.getTime() % 20 == 0 then
+        self.syncCriticalTankPing(self.tank:serialiseCritical())
+        self.tankPositionIsDirty = false
+    end
+end
+
 function TankComplex:dispose()
+    self.disposed[1] = true
     self.tankModel:dispose()
-    self.tablet:dispose()
     if host:isHost() then
         debugger:region("host only")
         self.HUD:dispose()
@@ -72,6 +89,7 @@ function TankComplex:dispose()
     end
     models.world:removeChild(self.tankModelGroup)
     models:removeChild(self.hudModel)
+    self.hudModel:setParentType("NONE")
 end
 
 

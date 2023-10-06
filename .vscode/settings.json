@@ -1,5 +1,9 @@
 {
     "Lua.completion.autoRequire": true,
     "Lua.misc.parameters": ["--develop=true"],
-    "Lua.runtime.plugin": "./.lsplugin/test.lua"
+    "Lua.runtime.plugin": "./.lsplugin/test.lua",
+    "Lua.diagnostics.disable": [
+        "undefined-global"
+    ],
+    "Lua.runtime.version": "Lua 5.2"
 }

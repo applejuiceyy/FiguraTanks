@@ -1,5 +1,5 @@
 local class = require("tank/class")
-local Event = require("tank/events/events")
+local Event = require("tank.events.Event")
 
 
 local Store = class("Store", Event)

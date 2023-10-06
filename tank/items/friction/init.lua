@@ -1,31 +1,35 @@
 local class          = require("tank.class")
 local util        = require("tank.util")
 
-
+---@params PingChannel State
 local Friction = class("Friction")
+---@params Friction Tank number number
 local FrictionInstance = class("FrictionInstance")
 
 
 Friction.name = "default:friction"
-Friction.requiredPings = {
-    friction = function(self, tank, lifespan, id)
-        if not tank:hasEffect(id) then
-            tank:addEffect(id, FrictionInstance:new(self, tank, lifespan, id))
-        end
-    end
-}
 
 
 function Friction:init(pings, state)
     self.pings = pings
     self.state = state
+
+    self.frictionPing = pings:register{
+        name = "friction",
+        arguments = {"tank", "default", "default"},
+        func = function(tank, lifespan, id)
+            if not tank:hasEffect(id) then
+                tank:addEffect(id, FrictionInstance:new(self, tank, lifespan, id))
+            end
+        end
+    }
 end
 
 function Friction:render() end
 function Friction:tick() end
 
 function Friction:apply(tank)
-    self.pings.friction(1000, util.intID())
+    self.frictionPing(tank, 1000, util.intID())
 end
 
 function Friction:handleWeaponDamages(hits, tank)
@@ -72,7 +76,7 @@ end
 function FrictionInstance:populateSyncQueue(consumer)
     consumer(function()
         if self.tank:hasEffect(self.id) then
-            self.owner.pings.friction(self.lifespan, self.id)
+            self.owner.frictionPing(self.tank, self.lifespan, self.id)
         end
     end)
 end

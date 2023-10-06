@@ -49,6 +49,14 @@ local function traverseSet(name, obj, value)
     end
 end
 
+local function SuggestTanks()
+    local ret = {}
+    for id in pairs(State.loadedTanks) do
+        table.insert(ret, id)
+    end
+    return ret
+end
+
 function pings.emitSettingsChange(path, value)
     traverseSet(path, settings, value)
 end
@@ -62,6 +70,7 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
         :executes(function(ctx)
             State:focusTank(ctx.args.id)
         end)
+        :suggests(SuggestTanks)
     )
 )
 :append(
@@ -80,9 +89,13 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
 )
 :append(
     command.literal("unload")
-    :executes(function()
-        State:unloadTank()
-    end)
+    :append(
+        command.str("id")
+        :executes(function(ctx)
+            State:unloadTank(ctx.args.id)
+        end)
+        :suggests(SuggestTanks)
+    )
 )
 :append(
     command.literal("settings")

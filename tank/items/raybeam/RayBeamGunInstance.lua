@@ -1,6 +1,7 @@
 local class       = require("tank.class")
 local util        = require("tank.util")
 
+---@params RayBeamGun Tank integer
 local RayBeamGunInstance = class("RayBeamGunInstance")
 
 function RayBeamGunInstance:init(owner, tank, bulletsRemaining)
@@ -64,7 +65,7 @@ end
 function RayBeamGunInstance:populateSyncQueue(consumer)
     consumer(function()
         if self.tank.currentWeapon == self then
-            self.owner.pings.equip(self.bulletsRemaining)
+            self.owner.equipPing(self.tank, self.bulletsRemaining)
         end
     end)
 end
