@@ -28,6 +28,34 @@ local function positionIsSupported(position)
     and collision.collidesWithWorld(vec(0.1, 0, 0.1) + position, vec(-0.1, -0.1, -0.1) + position)
 end
 
+local function randomCandidatePosition(center, xd, yd, zd)
+    local x = math.random(-xd, xd)
+    local y = math.random(-yd, yd)
+    local z = math.random(-zd, zd)
+
+    local place = vec(x, y, z) + center + vec(math.random() - 0.5, 0, math.random() - 0.5)
+
+    local y = 0
+    local block = world.getBlockState(place)
+    for _, shape in ipairs(block:getCollisionShape()) do
+        y = math.max(y, shape[2].y)
+    end
+
+    place.y = place.y + y
+
+    return place
+end
+
+local function generateCrateTextFromData(kind, owner, timeGone)
+    local e = string.format('[{"text":%q, "color":"#ff6622"}, {"text":"\\n"}, {"text":"Crate hosted by ", "color":"#ffffff"}, {"text":%q, "color":"#ff6622"}', kind, owner)
+
+    if timeGone ~= 0 then
+        e = e .. string.format(',{"text":"\\nDisappearing in ", "color":"#ffffff"}, {"text":%q, "color":"#ff6622"}, {"text":" seconds", "color":"#ffffff"}', math.floor((timeGone - world.getTime()) / 20))
+    end
+
+    return e .. "]"
+end
+
 
 function CrateSpawner:init(pingChannel, state)
     pingChannel:augment{
@@ -77,6 +105,10 @@ function CrateSpawner:init(pingChannel, state)
         "SWS", {}, function() return self.sharedWorldStatePingChannel end, {}, {}
     )
 
+    self.megaHealthGenerators = {
+
+    }
+
     self.sharedWorldState = SharedWorldState:new{
         name = "tankCrates",
         avatarVars = function(name)
@@ -99,7 +131,7 @@ function CrateSpawner:init(pingChannel, state)
             }
         },
 
-        createEntityDataFromPing = function(id, location, kindIndex, validIn)
+        createEntityDataFromPing = function(id, location, kindIndex, validIn, timeGone, golden)
             if not player:isLoaded() then
                 return
             end
@@ -144,7 +176,7 @@ function CrateSpawner:init(pingChannel, state)
             anchorGrup:addChild(overTextGroup)
 
             local text = overTextGroup:newText("e")
-            text:setText(string.format('[{"text":%q, "color":"#ff6622"}, {"text":"\\n"}, {"text":"Crate hosted by ", "color":"#ffffff"}, {"text":%q, "color":"#ff6622"}]', kind, player:getName()))
+            text:setText(generateCrateTextFromData(kind, player:getName(), timeGone))
             text:setAlignment("CENTER")
             text:setPos(0, 9 * 0.4, 0)
             text:setScale(0.4, 0.4, 0.4)
@@ -163,14 +195,17 @@ function CrateSpawner:init(pingChannel, state)
                 groundModel = icon,
                 crateModel = crate,
                 validIn = validIn,
+                textTask = text,
                 modelRotation = math.random() * 360,
                 crateRotation = math.random() * 360,
-                damageCreator = creator
+                damageCreator = creator,
+                golden = golden,
+                timeGone = timeGone
             }
         end,
-        syncEntityArgs = {"default", "default", "default", "default"},
+        syncEntityArgs = {"default", "default", "default", "default", "default", "default"},
         createPingDataFromEntity = function(data)
-            return data.id, data.location, crates[data.kind], data.validIn
+            return data.id, data.location, crates[data.kind], data.validIn, data.timeGone, data.golden
         end,
 
         fetchIdFromData = function(data)
@@ -186,7 +221,9 @@ function CrateSpawner:init(pingChannel, state)
                 id = data.id,
                 location = data.location,
                 kind = data.kind,
-                validIn = data.validIn
+                validIn = data.validIn,
+                golden = data.golden,
+                timeGone = data.timeGone
             }
         end,
 
@@ -225,7 +262,21 @@ function CrateSpawner:init(pingChannel, state)
                 end
             end,
 
-            tick = function() end
+            tick = function(id, data)
+                local shouldDispose = true
+                if data.golden then
+                    particles["dust 1 1 0 1"]
+                        :pos(data.location + (util.unitRandom() - vec(0.5, 0, 0.5)) * vec(0.6, 0, 0.6))
+                        :velocity(0, 0.1, 0)
+                        :spawn()
+                    shouldDispose = false
+                end
+                if data.timeGone ~= 0 then
+                    data.textTask:setText(generateCrateTextFromData(data.kind, player:getName(), data.timeGone))
+                    shouldDispose = false
+                end
+                return shouldDispose
+            end
         },
 
         dispose = function(data)
@@ -235,15 +286,15 @@ function CrateSpawner:init(pingChannel, state)
     }
 end
 
+function CrateSpawner:getAvailableCrates()
+    return crates
+end
+
 function CrateSpawner:trySpawnCrate()
     self.tryingToSpawnCrates = self.tryingToSpawnCrates or math.random() > 0.99
     if not self.tryingToSpawnCrates then
         return
     end
-
-    local x = math.random(-20, 20)
-    local y = math.random(-5, 5)
-    local z = math.random(-20, 20)
 
     local candidates = {player:getPos():floor()}
     for _, complex in pairs(self.state.loadedTanks) do
@@ -252,15 +303,7 @@ function CrateSpawner:trySpawnCrate()
 
     local center = candidates[math.random(1, #candidates)]
 
-    local place = vec(x, y, z) + center + vec(math.random() - 0.5, 0, math.random() - 0.5)
-
-    local y = 0
-    local block = world.getBlockState(place)
-    for _, shape in ipairs(block:getCollisionShape()) do
-        y = math.max(y, shape[2].y)
-    end
-
-    place.y = place.y + y
+    local place = randomCandidatePosition(center, 20, 5, 20)
 
     if not positionIsSupported(place) then
         return
@@ -272,10 +315,41 @@ function CrateSpawner:trySpawnCrate()
         end
     end
 
+    self:trySpawnCrateAfterPositionIsPicked(place)
+end
 
+function CrateSpawner:trySpawnCrateAfterPositionIsPicked(place)
     local kindIndex = math.random(1, #cratesIndexed)
-    self.sharedWorldState:newEntity(util.intID(), place, kindIndex, world.getTime() + 100)
+
+    local golden = false
+    local timeGone = 0
+    if cratesIndexed[kindIndex] == "default:health" and math.random() > 0.9 then
+        local moreCrate = 2
+        local percentage = 0.3
+        if math.random() > 0.9 then
+            percentage = 0.05
+        end
+        while math.random() > percentage do
+            moreCrate = moreCrate + 1
+        end
+        self.megaHealthGenerators[place] = moreCrate
+        golden = true
+        timeGone = world.getTime() + 500
+    end
+
+    self.sharedWorldState:newEntity(util.intID(), place, kindIndex, world.getTime() + 100, timeGone, golden)
     self.tryingToSpawnCrates = false
+end
+
+function CrateSpawner:trySpawnMegaHealthCrate(center)
+    local place = randomCandidatePosition(center, 2, 2, 2)
+
+    if not positionIsSupported(place) then
+        return
+    end
+
+    self.sharedWorldState:newEntity(util.intID(), place, crates["default:health"], world.getTime() + 100, world.getTime() + 500, true)
+    return true
 end
 
 function CrateSpawner:populateSyncQueue(consumer)
@@ -283,7 +357,6 @@ function CrateSpawner:populateSyncQueue(consumer)
 end
 
 function CrateSpawner:testCrateReach(tankDispose, tank)
-
     local highCollisionShape, lowCollisionShape = tank:getCollisionShape()
 
     for uuid, id, data in self.sharedWorldState:iterateAllEntities() do
@@ -328,10 +401,26 @@ function CrateSpawner:tick()
     if host:isHost() then
         debugger:region("host only")
         if settings.spawnCrates then
-            self:trySpawnCrate()
+            for i = 1, 5 do
+                self:trySpawnCrate()
+            end
             for id, crate in self.sharedWorldState:iterateOwnEntities() do
-                if not positionIsSupported(crate.location) then
+                if (crate.timeGone ~= 0 and crate.timeGone < world.getTime()) or not positionIsSupported(crate.location) then
                     self.unsupportedCrate(id)
+                end
+            end
+
+            for i = 1, 5 do
+                local key, value = next(self.megaHealthGenerators)
+
+                if key ~= nil then
+                    if self:trySpawnMegaHealthCrate(key) then
+                        if value <= 1 then
+                            self.megaHealthGenerators[key] = nil
+                        else
+                            self.megaHealthGenerators[key] = value - 1
+                        end
+                    end
                 end
             end
         end

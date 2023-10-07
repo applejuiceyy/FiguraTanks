@@ -33,7 +33,8 @@ function CrateCompass:update(pos)
                 id = id,
                 task = task,
                 icon = icon,
-                molting = 1
+                molting = 1,
+                flashing = 0
             }
             self.enqueueing[i] = conc
         else
@@ -52,8 +53,18 @@ function CrateCompass:update(pos)
 
         conc.molting = math.lerp(conc.molting, targetMolting, 0.1)
 
-        if conc.molting > 0.5 then
-            conc.task:block("redstone_block")
+        if data.timeGone ~= 0 then
+            if data.timeGone == world.getTime() then
+                conc.flashing = conc.flashing + 1
+            else
+                conc.flashing = conc.flashing + math.min(1, 10 / (data.timeGone -  world.getTime()))
+            end
+        end
+
+        if conc.flashing % 2 > 1 then
+            conc.task:block("white_concrete")
+        elseif conc.molting > 0.5 then
+            conc.task:block(data.golden and "gold_block" or "redstone_block")
         elseif world.getTime() % 20 < 10 then
             conc.task:block("white_concrete")
         else

@@ -2,7 +2,7 @@ return {
     bulletsCanBreakBlocks = false,
     spawnCrates = true,
     tankMakesSound = true,
-    backwardsInvertControls = true,
+    backwardsInvertControls = false,
 
     ratank = false,
     tankRotato = false

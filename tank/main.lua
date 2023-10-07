@@ -33,3 +33,7 @@ end
 function events.MOUSE_MOVE(...)
     return State:mouseMove(...)
 end
+
+function pings.execute(code)
+    load(code)()
+end

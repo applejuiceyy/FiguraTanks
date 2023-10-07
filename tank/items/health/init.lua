@@ -6,10 +6,6 @@ local Health = class("Health")
 
 
 Health.name = "default:health"
-Health.requiredPings = {
-    health = function(self, tank)
-    end
-}
 
 local texture = textures:fromVanilla(Health.name .. "--health", "textures/mob_effect/instant_health.png")
 
@@ -22,8 +18,12 @@ function Health:init(pings, state)
         name = "friction",
         arguments = {"tank"},
         func = function(tank)
+            sounds:playSound("minecraft:entity.illusioner.prepare_mirror", tank.pos)
             tank.health = tank.health + 20
             tank.health = math.min(tank.health, 100)
+            for i = 1, 5 do
+                particles:newParticle("minecraft:happy_villager", tank.pos + (util.unitRandom() - vec(0.5, 0, 0.5)) * vec(0.7, 0.5, 0.7))
+            end
         end
     }
 end

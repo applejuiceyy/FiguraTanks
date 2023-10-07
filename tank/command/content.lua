@@ -1,6 +1,7 @@
 local command        = require("tank/command/commands/main")
 local State          = require("tank.state.State")
 local settings       = require("tank.settings")
+local util      = require("tank.util")
 
 local function traverseSettings(consumer, prefix, obj)
     for name, thing in pairs(obj) do
@@ -130,8 +131,40 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
     )
 )
 :append(
-    command.literal("destroy-crates")
-    :executes(function()
-        State.crateSpawner.destroyCrates = true
-    end)
+    command.literal("crate")
+    :append(
+        command.literal("spawn")
+        :append(
+            command.str("name")
+            :executes(function(ctx)
+                local name = ctx.args.name
+                local crates = State.crateSpawner:getAvailableCrates()
+                local id = crates[name]
+                if id == nil then
+                    ctx:respond("Unknown crate")
+                    return
+                end
+                State.crateSpawner.sharedWorldState:newEntity(util.intID(), player:getPos(), id, world.getTime() + 100, nil, false)
+            end)
+            :suggests(function()
+                local ret = {}
+                for name in pairs(State.crateSpawner:getAvailableCrates()) do
+                    table.insert(ret, name)
+                end
+                return ret
+            end)
+        )
+    )
+    :append(
+        command.literal("generate")
+        :executes(function(ctx)
+            State.crateSpawner:trySpawnCrateAfterPositionIsPicked(player:getPos())
+        end)
+    )
+    :append(
+        command.literal("destroy")
+        :executes(function(ctx)
+            State.crateSpawner.destroyCrates = true
+        end)
+    )
 )

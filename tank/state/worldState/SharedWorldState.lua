@@ -1,7 +1,4 @@
 local class     = require("tank.class")
-local util      = require("tank.util")
-local collision = require("tank.collision")
-local settings    = require("tank.settings")
 
 ---@params {syncEntityArgs:table,pingChannel:PingChannel,actions:{[string]:{arguments:string[],acknowledgementArguments:string[],onAcknowledgement:function,onAcknowledging:function,onAction:function}},dispose:function,rendering:{render:function,tick:function},publicFace:function,createPingDataFromEntity:function,fetchIdFromData:function,fetchIdFromPing:function,createEntityDataFromPing:function,name:string,avatarVars:fun(in:string):string}
 local SharedWorldState     = class("SharedWorldState")
