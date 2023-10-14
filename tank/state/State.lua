@@ -6,6 +6,8 @@ local WorldDamageDisplay = require("tank.state.WorldDamageDisplay")
 local settings           = require("tank.settings")
 local PingChannel        = require("tank.state.PingChannel")
 local TankComplex        = require("tank.state.TankComplex")
+local ControlRepo        = require("tank.host.controller.ControlRepo")
+local Keyboard           = require("tank.host.controller.Keyboard")
 
 ---@params 
 local State     = class("State")
@@ -36,6 +38,8 @@ function State:init()
 
     self.currentlyFocusedTank = nil
 
+    self.controlRepo = ControlRepo:new()
+
     self.tablet = UserTablet:new()
 
 
@@ -58,6 +62,9 @@ function State:init()
         func = function(id, ...)
             if self.loadedTanks[id] == nil then
                 local complex = TankComplex:new(self, self.pingChannel:inherit("TankComplex", {"default"}, function(id)
+                    if self.loadedTanks[id] == nil then
+                        return
+                    end
                     return self.loadedTanks[id].pingChannel
                 end, {id}, {}))
                 self:setTankComplex(id, complex)
@@ -101,6 +108,9 @@ function State:init()
         name = "focusTank",
         arguments = {"default"},
         func = function(id)
+            if id == self.currentlyFocusedTank then
+                return
+            end
             local o = self.loadedTanks[id]
             if host:isHost() then
                 debugger:region("host only")
@@ -114,6 +124,7 @@ function State:init()
             end
             self.currentlyFocusedTank = id
             self.tablet:setFocus(o.tank)
+            o.keyboard:listen()
         end
     }
 
@@ -134,6 +145,7 @@ function State:init()
             end
             self.currentlyFocusedTank = nil
             self.tablet:setFocus(nil)
+            self.loadedTanks[self.currentlyFocusedTank].keyboard:unlisten()
         end
     }
 
@@ -150,9 +162,11 @@ function State:init()
             local manager = require(path)
             local name = manager.name
 
-            self.itemManagers[name] = manager:new(self.pingChannel:inherit("manager-" .. name, {}, nil, {}, {}), self)
+            self.itemManagers[name] = manager:new(self.pingChannel:inherit("manager-" .. name, {}, nil, {}, {}), self, self.controlRepo)
         end
     end
+
+    self.keyboardRepo = Keyboard:new(self.pingChannel:inherit("keyboard", {}, nil, {}, {}), self.controlRepo)
 
 
     self.syncQueue = {}

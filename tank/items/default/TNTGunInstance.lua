@@ -16,7 +16,7 @@ function TNTGunInstance:tick()
     self.charge = self.charge + 0.08
     self.charge = math.min(1, self.charge)
     
-    if self.tank.controller.shoot and self.charge >= 1 then
+    if self.tank.controller:isPressed(self.owner.state.controlRepo.shoot) and self.charge >= 1 then
         self.charge = self.charge - 1
         local vel = vec(2, 0, 0)
         vel = vectors.rotateAroundAxis(-self.tank.nozzle.y, vel, vec(0, 0, 1))

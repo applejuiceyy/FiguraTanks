@@ -13,8 +13,8 @@ function FlameThrowerInstance:init(owner, tank, charge)
 end
 
 function FlameThrowerInstance:tick()
-    if self.tank.controller.shoot ~= self.flaming then
-        self.flaming = self.tank.controller.shoot
+    if self.tank.controller:isPressed(self.owner.state.controlRepo.shoot) ~= self.flaming then
+        self.flaming = self.tank.controller:isPressed(self.owner.state.controlRepo.shoot)
         self.owner.setFlaming(self.tank, self.flaming)
     end
     if self.flaming then

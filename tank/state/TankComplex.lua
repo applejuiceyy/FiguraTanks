@@ -3,9 +3,7 @@ local Tank  = require "tank.Tank"
 local util  = require "tank.util"
 local TankModel = require "tank.model.TankModel"
 local TankController = require "tank.host.TankController"
-local keyboardController = require "tank.host.controller.keyboardController"
 local HUD                = require "tank.model.HUD"
-local Event              = require "tank.events.Event"
 
 ---@params State PingChannel
 local TankComplex = class("TankComplex")
@@ -15,6 +13,8 @@ function TankComplex:init(state, pingChannel)
     self.disposed = {false}
     self.pingChannel = pingChannel
 
+    
+
     self.syncCriticalTankPing = self.pingChannel:register{
         name = "syncCriticalTank",
         arguments = {"default", "default", "default", "default", "default"},
@@ -22,15 +22,15 @@ function TankComplex:init(state, pingChannel)
             self.tank:applyCritical(...)
         end
     }
-
-
-    self.tank = Tank:new(function()
+    self.tank = Tank:new(state.controlRepo, function()
         local hits = {}
         for name, manager in pairs(state.itemManagers) do
             manager:handleWeaponDamages(hits, self.tank)
         end
         return hits
     end)
+    self.keyboard = state.keyboardRepo:create(self.tank.controller)
+
     state.itemManagers["default:tntgun"]:_applyAfterPing(self.tank)
 
     self.tankModelGroup = util.deepcopy(models.models.tank.body)
@@ -60,10 +60,7 @@ function TankComplex:init(state, pingChannel)
         self.hudModel:setParentType("HUD")
         self.hudModel:setVisible(false)
         debugger:region(nil)
-    else
-        self.tank.controller = keyboardController
     end
-
 end
 
 function TankComplex:tick()
@@ -85,11 +82,11 @@ function TankComplex:dispose()
         debugger:region("host only")
         self.HUD:dispose()
         self.tankController:dispose()
+        models:removeChild(self.hudModel)
+        self.hudModel:setParentType("NONE")
         debugger:region(nil)
     end
     models.world:removeChild(self.tankModelGroup)
-    models:removeChild(self.hudModel)
-    self.hudModel:setParentType("NONE")
 end
 
 

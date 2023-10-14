@@ -1,8 +1,4 @@
 local class       = require("tank.class")
-local util        = require("tank.util")
-local keyboardController = require("tank.host.controller.keyboardController")
-local noopController = require("tank.host.controller.noopController")
-local settings       = require("tank.settings")
 
 local TankModelController = class("TankModelController")
 
@@ -64,16 +60,12 @@ function TankModelController:unfocusTank()
     renderer:offsetCameraRot(0, 0, 0)
     renderer:setCameraPivot()
     self.focusingTank = false
-    self.tank.controller = noopController
     renderer:setCameraRot(nil, nil, nil)
-    keyboardController.deactivate()
 end
 
 function TankModelController:focusTank()
     self.focusingTank = true
-    self.tank.controller = keyboardController
     --renderer.renderHUD = false
-    keyboardController.activate()
 end
 
 return TankModelController

@@ -53,7 +53,7 @@ function CrateCompass:update(pos)
 
         conc.molting = math.lerp(conc.molting, targetMolting, 0.1)
 
-        if data.timeGone ~= 0 then
+        if data.timeGone ~= 0 and data.timeGone ~= nil then
             if data.timeGone == world.getTime() then
                 conc.flashing = conc.flashing + 1
             else

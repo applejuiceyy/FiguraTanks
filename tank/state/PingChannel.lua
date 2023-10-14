@@ -77,8 +77,13 @@ function PingChannel:handle(name, arguments, pointer)
     else
         local converted, newPointer = convertArguments(arguments, pointer, child.dispatchArguments, self.converters, "inflate")
 
-        return child.dispatch(table.unpack(converted))
-        :handle(child.name, arguments, newPointer)
+        local value = child.dispatch(table.unpack(converted))
+
+        if value == nil then
+            return
+        end
+        
+        value:handle(child.name, arguments, newPointer)
     end
 end
 
@@ -91,10 +96,10 @@ function PingChannel:inherit(name, dispatchArguments, dispatch, resolve, convert
             name = pingName
         }
         local og = self.backer(name .. "$" .. pingName)
+        if #dispatchArguments == 0 then
+            return og
+        end
         return function(...)
-            if #dispatchArguments == 0 then
-                return og(...)
-            end
             local converted = convertArguments(resolve, 1, dispatchArguments, channel.converters, "deflate")
             og(table.unpack(converted, 1, #dispatchArguments), ...)
         end

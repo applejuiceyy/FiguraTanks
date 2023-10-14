@@ -152,7 +152,7 @@ function RayBeamGun:handleWeaponDamages(hits, tank)
 
                     local localPos = mat:invert():apply(tank.pos)
 
-                    if collision.collidesWithRectangle(localPos, localPos, vec(100, 1, 1), vec(0, -1, -1)) then
+                    if collision.collidesWithRectangle(localPos, localPos, vec(100, 2, 2), vec(0, -2, -2)) then
                         self.knownRays[uuid .. id] = true
                         tank.health = tank.health - 30
                         tank.vel = tank.vel + util.pitchYawToUnitVector(ray.dir)

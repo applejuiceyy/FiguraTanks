@@ -2,8 +2,9 @@ local Event     = require("tank.events.Event")
 local collision = require("tank.collision")
 local class     = require("tank.class")
 local settings  = require("tank.settings")
+local Control   = require("tank.host.controller.Control")
 
----@params fun():table
+---@params ControlRepo fun():table
 local Tank      = class("Tank")
 
 local waterlogs = {
@@ -87,7 +88,7 @@ end
 
 
 
-function Tank:init(weaponHandler)
+function Tank:init(controlRepo, weaponHandler)
     self.pos = vec(0, 0, 0)
     self.angle = 0
     self.nozzle = vec(0, 0)
@@ -105,7 +106,8 @@ function Tank:init(weaponHandler)
     self.dash = 1
     self.dashing = false
 
-    self.controller = setmetatable({}, {__index = function() return false end})
+    self.controlRepo = controlRepo
+    self.controller = Control:new(controlRepo)
     self.weaponHandler = weaponHandler
 
     self.onDeath = Event:new()
@@ -241,36 +243,36 @@ function Tank:fetchControls()
     local nozzleMomentum = vec(0, 0)
 
     if not self.dead then
-        if self.controller.forwards then
+        if self.controller:isPressed(self.controlRepo.forwards) then
             targetVelocity = targetVelocity + vectors.rotateAroundAxis(self.angle, vec(0.2, 0, 0), vec(0, 1, 0))
         end
 
-        if self.controller.backwards then
+        if self.controller:isPressed(self.controlRepo.backwards) then
             targetVelocity = targetVelocity - vectors.rotateAroundAxis(self.angle, vec(0.2, 0, 0), vec(0, 1, 0))
         end
 
         local direction = 1
-        if settings.backwardsInvertControls and self.controller.backwards and not self.controller.forwards then
+        if settings.backwardsInvertControls and self.controller:isPressed(self.controlRepo.backwards) and not self.controller:isPressed(self.controlRepo.forwards) then
             direction = -1
         end
 
-        if self.controller.left then
+        if self.controller:isPressed(self.controlRepo.left) then
             targetAngleMomentum = targetAngleMomentum + 5 * direction
         end
 
-        if self.controller.right then
+        if self.controller:isPressed(self.controlRepo.right) then
             targetAngleMomentum = targetAngleMomentum - 5 * direction
         end
-        if self.controller.nozzleup then
+        if self.controller:isPressed(self.controlRepo.nozzleup) then
             nozzleMomentum.y = nozzleMomentum.y - 2
         end
-        if self.controller.nozzledown then
+        if self.controller:isPressed(self.controlRepo.nozzledown) then
             nozzleMomentum.y = nozzleMomentum.y + 2
         end
-        if self.controller.nozzleleft then
+        if self.controller:isPressed(self.controlRepo.nozzleleft) then
             nozzleMomentum.x = nozzleMomentum.x + 2
         end
-        if self.controller.nozzleright then
+        if self.controller:isPressed(self.controlRepo.nozzleright) then
             nozzleMomentum.x = nozzleMomentum.x - 2
         end
 
@@ -284,7 +286,7 @@ function Tank:fetchControls()
             end
         end
 
-        if self.controller.dash and self.dash >= 1 then
+        if self.controller:isPressed(self.controlRepo.dash) and self.dash >= 1 then
             self.dashing = true
             self.onDash:fire()
         end
