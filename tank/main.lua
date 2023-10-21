@@ -3,7 +3,7 @@ if debugger == nil then
 end
 
 local State = require "tank.state.State"
-local util  = require "tank.util"
+local util  = require "tank.util.util"
 
 models.world:setParentType("WORLD")
 

@@ -1,6 +1,6 @@
 local class = require "tank.class"
 local Tank  = require "tank.Tank"
-local util  = require "tank.util"
+local util  = require "tank.util.util"
 local TankModel = require "tank.model.TankModel"
 local TankController = require "tank.host.TankController"
 local HUD                = require "tank.model.HUD"
@@ -22,13 +22,8 @@ function TankComplex:init(state, pingChannel)
             self.tank:applyCritical(...)
         end
     }
-    self.tank = Tank:new(state.controlRepo, function()
-        local hits = {}
-        for name, manager in pairs(state.itemManagers) do
-            manager:handleWeaponDamages(hits, self.tank)
-        end
-        return hits
-    end)
+    self.tank = Tank:new(state.controlRepo, state.itemManagers)
+
     self.keyboard = state.keyboardRepo:create(self.tank.controller)
 
     state.itemManagers["default:tntgun"]:_applyAfterPing(self.tank)
@@ -87,6 +82,7 @@ function TankComplex:dispose()
         debugger:region(nil)
     end
     models.world:removeChild(self.tankModelGroup)
+    self.keyboard:unlisten()
 end
 
 

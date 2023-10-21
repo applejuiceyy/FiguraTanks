@@ -1,6 +1,6 @@
 local class          = require("tank.class")
-local FlameThrowerInstance = require("tank.items.flamethrower.FlameThrowerInstance")
-local util        = require("tank.util")
+local FlameThrowerInstance = require("tank.items.flamethrower.FlameThrowerEffect")
+local util        = require("tank.util.util")
 local collision = require("tank.collision")
 local settings       = require("tank.settings")
 
@@ -9,8 +9,8 @@ local settings       = require("tank.settings")
 local FlameThrower = class("FlameThrower")
 
 
-FlameThrower.name = "default:flamethrower"
-FlameThrower.rayAvatarPath = "__FiguraTanks_" .. FlameThrower.name .. "_flame"
+FlameThrower.id = "default:flamethrower"
+FlameThrower.rayAvatarPath = "__FiguraTanks_" .. FlameThrower.id .. "_flame"
 
 function FlameThrower:init(pings, state)
     self.pings = pings
@@ -18,20 +18,20 @@ function FlameThrower:init(pings, state)
 
     self.setFlaming = pings:register{
         name = "setFlaming",
-        arguments = {"tank", "default"},
-        func = function(tank, flameState)
-            self:_setFlamingAfterPing(tank, flameState)
+        arguments = {"tank", "default", "default"},
+        func = function(tank, flameState, id)
+            self:_setFlamingAfterPing(tank, flameState, id)
         end
     }
 
     self.equip = pings:register{
         name = "equip",
-        arguments = {"tank", "default"},
-        func = function(tank, charge)
-            if tank.currentWeapon == nil or tank.currentWeapon.class ~= FlameThrowerInstance then
-                return self:_applyAfterPing(tank, charge)
+        arguments = {"tank", "default", "default"},
+        func = function(tank, charge, id)
+            if not tank:hasEffect(id) then
+                return self:_applyAfterPing(tank, charge, id)
             end
-            tank.currentWeapon.charge = charge
+            tank.effects[id].charge = charge
         end
     }
 
@@ -100,8 +100,10 @@ function FlameThrower:apply(tank)
 end
 
 
-function FlameThrower:_applyAfterPing(tank, charge)
-    tank:setWeapon(FlameThrowerInstance:new(self, tank, charge))
+function FlameThrower:_applyAfterPing(tank, charge, id)
+    util.removeWeaponEffects(tank)
+    id = id or util.intID()
+    tank:addEffect(id, FlameThrowerInstance:new(self, tank, charge, id))
 end
 
 
@@ -127,9 +129,9 @@ function FlameThrower:handleWeaponDamages(hits, tank)
     end
 end
 
-function FlameThrower:_setFlamingAfterPing(tank, state)
-    if tank.currentWeapon.class == FlameThrowerInstance then
-        tank.currentWeapon.flaming = state
+function FlameThrower:_setFlamingAfterPing(tank, state, id)
+    if tank:hasEffect(id) then
+        tank.effects[id].flaming = state
         if state then
             self.flamingTanks[tank] = true
         else

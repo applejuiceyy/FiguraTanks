@@ -1,4 +1,4 @@
-local util = require "tank.util"
+local util = require "tank.util.util"
 
 local function isString(thing)
     local success = pcall(string.len, thing)
@@ -147,3 +147,16 @@ events.TICK:register(function()
         cooldown = cooldown - 1
     end
 end)
+
+---@param o number
+---@return number
+local function e(o)
+    return
+end
+
+---@type {t:fun(o:number):number}
+local chees = {
+    t = function (o)
+        return "e"
+    end
+}

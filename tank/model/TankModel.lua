@@ -1,9 +1,11 @@
 local class          = require("tank.class")
-local util           = require("tank.util")
+local util           = require("tank.util.util")
 local EffectDisplay  = require("tank.model.EffectDisplay")
 local settings       = require("tank.settings")
 local TankRetexturer = require("tank.model.TankRetexturer")
 local CustomKeywords = require("tank.model.CustomKeywords")
+local Differential   = require("tank.util.Differential")
+local iter           = require("tank.util.iter")
 
 ---@params {tank:Tank,model:any,isHUD:boolean}
 local TankModelController = class("TankModelController")
@@ -16,9 +18,20 @@ function TankModelController:init(opt)
 
     self.focused = false
 
-    self.currentWeapon = nil
-    self.currentWeaponLifecycle = nil
-
+    self.effectDifferential = Differential:new(
+        function()
+            return pairs(self.tank.effects)
+        end,
+        function(key, value)
+            return util.callOn(value, "specifyModel", self)
+        end,
+        function(thing)
+            util.callOn(thing, "dispose")
+        end,
+        function(key)
+            return key
+        end
+    )
     self.oldHealth = self.tank.health
 
     self.oldvel = vec(0, 0, 0)
@@ -116,13 +129,9 @@ function TankModelController:afterTankTick(happenings)
         self.oldHealth = self.tank.health
     end
 
-    if self.currentWeapon ~= self.tank.currentWeapon then
-        util.callOn(self.currentWeaponLifecycle, "dispose")
-        self.currentWeaponLifecycle = self.tank.currentWeapon:generateTankModelGraphics(self)
-        self.currentWeapon = self.tank.currentWeapon
-    else
-        util.callOn(self.currentWeaponLifecycle, "tick")
-    end
+    self.effectDifferential:update(function(obj)
+        util.callOn(obj, "tick")
+    end)
 
     if math.random() > self.tank.health / 100 then
         particles["smoke"]
@@ -179,7 +188,9 @@ function TankModelController:render(happenings)
         self:spawnTankIgnitionSound(happenings)
     end
 
-    util.callOn(self.currentWeaponLifecycle, "render")
+    self.effectDifferential:update(function(obj)
+        util.callOn(obj, "render")
+    end)
     
     self.keywords:with(util.injectGenericCustomKeywordsExecution({
         Turret = function(m)
@@ -252,15 +263,38 @@ end
 
 function TankModelController:spawnDragParticles(happenings)
     if happenings.ground ~= nil then
-        local lerpTarget = math.lerp(self.oldTargetVelocity, happenings.targetVelocity, client.getFrameTime());
+        local raining = world.getRainGradient() >= math.random() and world.isOpenSky(self.tank.pos)
+
+        local lerpTarget = math.lerp(self.oldTargetVelocity, happenings.targetVelocity, client.getFrameTime())
         local lerpVel = math.lerp(self.oldvel, self.tank.vel, client.getFrameTime())
         local wantsdifferential = (lerpVel - lerpTarget):length()
         local offset = vectors.rotateAroundAxis(self.tank.angle, vec(0, 0, 0.5), vec(0, 1, 0))
         local offsetForwards = vectors.rotateAroundAxis(self.tank.angle, vec(0.8, 0, 0), vec(0, 1, 0))
         local pos = math.lerp(self.tank.oldpos, self.tank.pos, client.getFrameTime())
-        if math.random() < wantsdifferential * 10 then
-            spawnAt(pos + offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
-            spawnAt(pos - offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+        local velLength = lerpVel:length()
+
+        local times = 1
+        if raining then
+            times = 5
+        end
+
+        for i = 1, times do
+            if math.random() < wantsdifferential * 10 then
+                spawnAt(pos + offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+                spawnAt(pos - offset + offsetForwards * (math.random() - 0.5), ((lerpVel - lerpTarget) / 10 + vec(0,0.02,0)) * wantsdifferential * 40)
+            end
+        end
+
+        if raining then
+            local left = vectors.rotateAroundAxis(self.tank.angle, vec(0, 0, 0.5), vec(0, 1, 0)) * (math.random() * 2 - 1)
+            local right = vectors.rotateAroundAxis(self.tank.angle + 180, vec(0, 0, 0.5), vec(0, 1, 0)) * (math.random() * 2 - 1)
+
+            particles:newParticle("minecraft:block water", pos + offset + offsetForwards * (math.random() - 0.5))
+                :velocity(((left + vec(0,0.8,0)) * velLength) + vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) / 20)
+                :lifetime(math.random() * 100 + 200)
+            particles:newParticle("minecraft:block water", pos - offset + offsetForwards * (math.random() - 0.5))
+                :velocity(((right + vec(0,0.8,0)) * velLength) + vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) / 20)
+                :lifetime(math.random() * 100 + 200)
         end
     end
 end

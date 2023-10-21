@@ -1,10 +1,11 @@
 local class       = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 local CustomKeywords = require("tank.model.CustomKeywords")
 local TankModel      = require("tank.model.TankModel")
 local WorldSlice     = require("tank.model.WorldSlice")
 local CrateCompass     = require("tank.model.CrateCompass")
 local EffectDisplay    = require("tank.model.EffectDisplay")
+local Differential     = require("tank.util.Differential")
 
 
 ---@params {tank:Tank,model:any}
@@ -71,9 +72,32 @@ function HUD:init(opt)
 
     self.oldHealth = math.huge
 
-    self.currentWeapon = nil
-    self.currentWeaponIconGroups = {}
-    self.currentWeaponStatsGroups = {}
+    self.effectsDifferential = Differential:new(
+        function()
+            return pairs(self.tank.effects)
+        end,
+        function(key, value)
+            local thing = util.callOn(value, "specifyHUD", self)
+            if thing == nil then
+                return
+            end
+            return {value, thing}
+        end,
+        function(thing)
+            if self.currentEffectShowingInformation == thing[1] then
+                self:replaceInformation()
+            end
+            util.callOn(thing[2], "dispose")
+        end,
+        function(key)
+            return key
+        end
+    )
+
+    self.currentEffectShowingInformation = nil
+    self.currentInformationLifecycle = nil
+    self.currentInformationIconGroups = {}
+    self.currentInformationStatsGroups = {}
 
     self.antennaRot = 0
     self.previousAntennaRot = 0
@@ -152,50 +176,12 @@ function HUD:beforeTankTick(oldHappenings)
     self.oldHealth = self.tank.health
 end
 function HUD:afterTankTick(happenings)
-
     self.paperModel:afterTankTick(happenings)
-    if self.currentWeapon ~= self.tank.currentWeapon then
-        for group, data in pairs(self.currentWeaponIconGroups) do
-            util.callOn(data.lifecycle, "dispose")
-            group:removeChild(data.group)
-        end
+    self.effectsDifferential:update(function(thing)
+        util.callOn(thing[2], "tick")
+    end)
 
-        for group, data in pairs(self.currentWeaponStatsGroups) do
-            util.callOn(data.lifecycle, "dispose")
-            group:removeChild(data.group)
-        end
-
-        for model in self.keywords:iterate("WeaponIconAnchor") do
-            local group = util.group()
-            local lifecycle = self.tank.currentWeapon:generateIconGraphics(group)
-            self.currentWeaponIconGroups[model] = {
-                group = group,
-                lifecycle = lifecycle
-            }
-            model:addChild(group)
-            group:setPos(model:getPivot())
-        end
-
-        for model, args in self.keywords:iterate("WeaponStatsAnchor") do
-            local group = util.group()
-            local lifecycle = self.tank.currentWeapon:generateHudInfoGraphics(group, util.vecify(args()), self)
-            self.currentWeaponStatsGroups[model] = {
-                group = group,
-                lifecycle = lifecycle
-            }
-            model:addChild(group)
-            group:setPos(model:getPivot())
-        end
-
-        self.currentWeapon = self.tank.currentWeapon
-    else
-        for group, data in pairs(self.currentWeaponIconGroups) do
-            util.callOn(data.lifecycle, "tick")
-        end
-        for group, data in pairs(self.currentWeaponStatsGroups) do
-            util.callOn(data.lifecycle, "tick")
-        end
-    end
+    self:maintainInformations()
 
     for model, args in self.keywords:iterate("EffectAnchor") do
         self.currentEffectsGroups[model]:tick()
@@ -313,6 +299,82 @@ function HUD:render(happenings)
     }), client.getFrameTime())
 end
 
+function HUD:disposeInformations()
+    for group, data in pairs(self.currentInformationIconGroups) do
+        util.callOn(data.lifecycle, "dispose")
+        group:removeChild(data.group)
+    end
+
+    for group, data in pairs(self.currentInformationStatsGroups) do
+        util.callOn(data.lifecycle, "dispose")
+        group:removeChild(data.group)
+    end
+    util.callOn(self.currentInformationLifecycle, "dispose")
+    self.currentEffectShowingInformation = nil
+    self.currentInformationLifecycle = nil
+    self.currentInformationIconGroups = {}
+    self.currentInformationStatsGroups = {}
+end
+
+function HUD:createInformations()
+    for model in self.keywords:iterate("WeaponIconAnchor") do
+        local group = util.group()
+        local lifecycle = util.callOn(self.currentInformationLifecycle, "icon", group)
+        self.currentInformationIconGroups[model] = {
+            group = group,
+            lifecycle = lifecycle
+        }
+        model:addChild(group)
+        group:setPos(model:getPivot())
+    end
+
+    for model, args in self.keywords:iterate("WeaponStatsAnchor") do
+        local group = util.group()
+        local lifecycle = util.callOn(self.currentInformationLifecycle, "information", group, util.vecify(args()))
+        self.currentInformationStatsGroups[model] = {
+            group = group,
+            lifecycle = lifecycle
+        }
+        model:addChild(group)
+        group:setPos(model:getPivot())
+    end
+end
+
+function HUD:replaceInformation()
+    self:disposeInformations()
+    self:findNewInformation()
+end
+
+function HUD:findNewInformation()
+    self.effectsDifferential:iterateWithoutUpdate(function(thing)
+        if util.callOn(thing[2], "showsCustomInformation") then
+            self.currentEffectShowingInformation = thing[1]
+            self.currentInformationLifecycle = thing[2]
+            self:createInformations()
+            return true
+        end
+    end)
+
+end
+
+function HUD:maintainInformations()
+
+    if self.currentEffectShowingInformation == nil then
+        self:findNewInformation()
+    elseif not util.callOn(self.currentEffectShowingInformation, "showsCustomInformation") then
+        self:replaceInformation()
+    end
+
+    if self.currentEffectShowingInformation ~= nil then
+        for group, data in pairs(self.currentInformationIconGroups) do
+            util.callOn(data.lifecycle, "tick")
+        end
+        for group, data in pairs(self.currentInformationStatsGroups) do
+            util.callOn(data.lifecycle, "tick")
+        end
+    end
+end
+
 function HUD:dispose()
     self.model:removeChild(self.paperModelRoller)
     self.model:removeChild(self.backgroundPaperModelRoller)
@@ -320,15 +382,7 @@ function HUD:dispose()
         display:dispose()
     end
     
-    for group, data in pairs(self.currentWeaponIconGroups) do
-        util.callOn(data.lifecycle, "dispose")
-        group:removeChild(data.group)
-    end
-
-    for group, data in pairs(self.currentWeaponStatsGroups) do
-        util.callOn(data.lifecycle, "dispose")
-        group:removeChild(data.group)
-    end
+    self:disposeInformations()
 end
 
 return HUD

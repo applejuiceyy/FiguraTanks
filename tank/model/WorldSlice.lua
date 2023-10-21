@@ -1,5 +1,5 @@
 local class       = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 local CustomKeywords = require("tank.model.CustomKeywords")
 local TankModel      = require("tank.model.TankModel")
 

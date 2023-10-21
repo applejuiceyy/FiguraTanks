@@ -1,7 +1,7 @@
 local command        = require("tank/command/commands/main")
 local State          = require("tank.state.State")
 local settings       = require("tank.settings")
-local util      = require("tank.util")
+local util      = require("tank.util.util")
 
 local function traverseSettings(consumer, prefix, obj)
     for name, thing in pairs(obj) do

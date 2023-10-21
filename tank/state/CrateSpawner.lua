@@ -1,5 +1,5 @@
 local class     = require("tank.class")
-local util      = require("tank.util")
+local util      = require("tank.util.util")
 local collision = require("tank.collision")
 local settings    = require("tank.settings")
 local SharedWorldState = require("tank.state.worldState.SharedWorldState")

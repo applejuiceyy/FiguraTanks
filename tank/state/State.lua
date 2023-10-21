@@ -1,6 +1,6 @@
 local class              = require("tank.class")
 local UserTablet         = require("tank.model.UserTablet")
-local util               = require("tank.util")
+local util               = require("tank.util.util")
 local CrateSpawner       = require("tank.state.CrateSpawner")
 local WorldDamageDisplay = require("tank.state.WorldDamageDisplay")
 local settings           = require("tank.settings")
@@ -8,6 +8,7 @@ local PingChannel        = require("tank.state.PingChannel")
 local TankComplex        = require("tank.state.TankComplex")
 local ControlRepo        = require("tank.host.controller.ControlRepo")
 local Keyboard           = require("tank.host.controller.Keyboard")
+
 
 ---@params 
 local State     = class("State")
@@ -58,7 +59,7 @@ function State:init()
 
     self.syncTankPing = self.pingChannel:register{
         name = "syncTank",
-        arguments = {"default", "default", "default", "default", "default", "default", "default", "default", "default"},
+        arguments = {"default", "default", "default", "default", "default", "default", "default", "default"},
         func = function(id, ...)
             if self.loadedTanks[id] == nil then
                 local complex = TankComplex:new(self, self.pingChannel:inherit("TankComplex", {"default"}, function(id)
@@ -75,7 +76,7 @@ function State:init()
 
     self.syncCriticalTankPing = self.pingChannel:register{
         name = "syncCriticalTank",
-        arguments = {"default", "default", "default", "default", "default", "default", "default", "default", "default"},
+        arguments = {"default", "default", "default", "default", "default", "default", "default", "default"},
         func = function(id, ...)
             if self.loadedTanks[id] == nil then
                 return
@@ -143,9 +144,9 @@ function State:init()
                 end
                 debugger:region(nil)
             end
+            self.loadedTanks[self.currentlyFocusedTank].keyboard:unlisten()
             self.currentlyFocusedTank = nil
             self.tablet:setFocus(nil)
-            self.loadedTanks[self.currentlyFocusedTank].keyboard:unlisten()
         end
     }
 
@@ -160,7 +161,7 @@ function State:init()
     for _, path in pairs(listFiles("tank/items", true)) do
         if string.sub(path, 1, 11) == "tank.items." and string.sub(path, -4) == "init" then
             local manager = require(path)
-            local name = manager.name
+            local name = manager.id
 
             self.itemManagers[name] = manager:new(self.pingChannel:inherit("manager-" .. name, {}, nil, {}, {}), self, self.controlRepo)
         end
@@ -195,7 +196,7 @@ function State:tick()
 
     local store = {}
     local l
-    if self.currentlyFocusedTank ~= nil then
+    if self.currentlyFocusedTank ~= nil and self.loadedTanks[self.currentlyFocusedTank] ~= nil then
         l = self.loadedTanks[self.currentlyFocusedTank]
         self.tablet:beforeTankTick(l.happenings)
         if host:isHost() then
@@ -211,7 +212,7 @@ function State:tick()
 
         table.insert(store, {hitbox = {lowCollisionShape, highCollisionShape}, pos = tankComplex.tank.pos})
     end
-    if self.currentlyFocusedTank ~= nil then
+    if l ~= nil then
         self.tablet:afterTankTick(l.happenings)
         if host:isHost() then
             debugger:region("host only")
@@ -250,10 +251,6 @@ function State:populateTankConsumer(id, complex, consumer)
     dependentConsumer(function()
         self.syncTankPing(id, complex.tank:serialise())
     end)
-
-    if complex.tank.currentWeapon ~= nil then
-        complex.tank.currentWeapon:populateSyncQueue(dependentConsumer)
-    end
 
     for id, effect in pairs(complex.tank.effects) do
         effect:populateSyncQueue(dependentConsumer)

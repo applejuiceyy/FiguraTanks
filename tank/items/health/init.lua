@@ -1,13 +1,13 @@
 local class          = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 
 ---@params PingChannel State
 local Health = class("Health")
 
 
-Health.name = "default:health"
+Health.id = "default:health"
 
-local texture = textures:fromVanilla(Health.name .. "--health", "textures/mob_effect/instant_health.png")
+local texture = textures:fromVanilla(Health.id .. "--health", "textures/mob_effect/instant_health.png")
 
 
 function Health:init(pings, state)

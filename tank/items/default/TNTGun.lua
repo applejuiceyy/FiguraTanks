@@ -1,15 +1,15 @@
 local class          = require("tank.class")
-local TNTGunInstance = require("tank.items.default.TNTGunInstance")
+local TNTGunEffect = require("tank.items.default.TNTGunEffect")
 local Bullet         = require("tank.items.default.Bullet")
 local settings       = require("tank.settings")
+local util           = require("tank.util.util")
 
 
 ---@params PingChannel State
 local TNTGun = class("TNTGun")
 
-
-TNTGun.name = "default:tntgun"
-TNTGun.explosionAvatarPath = "__FiguraTanks_" .. TNTGun.name .. "_explosion"
+TNTGun.id = "default:tntgun"
+TNTGun.explosionAvatarPath = "__FiguraTanks_" .. TNTGun.id .. "_explosion"
 
 function TNTGun:init(pings, state)
     self.pings = pings
@@ -24,10 +24,10 @@ function TNTGun:init(pings, state)
 
     self.equip = pings:register{
         name = "equip",
-        arguments = {"tank"},
-        func = function(tank)
-            if tank.currentWeapon == nil or tank.currentWeapon.class ~= TNTGunInstance then
-                return self:_applyAfterPing(tank)
+        arguments = {"tank", "default"},
+        func = function(tank, id)
+            if not tank:hasEffect(id) then
+                return self:_applyAfterPing(tank, id)
             end
         end
     }
@@ -36,8 +36,10 @@ function TNTGun:init(pings, state)
     self.bullets = {}
 end
 
-function TNTGun:_applyAfterPing(tank)
-    tank:setWeapon(TNTGunInstance:new(self, tank))
+function TNTGun:_applyAfterPing(tank, id)
+    util.removeWeaponEffects(tank)
+    id = id or util.intID()
+    tank:addEffect(id, TNTGunEffect:new(self, tank, id))
 end
 
 function TNTGun:render()
@@ -62,6 +64,9 @@ function TNTGun:tick()
             damage:apply()
         end
     end
+    for _, tankComplex in pairs(self.state.loadedTanks) do
+        self:handleWeaponDamages(tankComplex.tank)
+    end
     if hasExplosions then
         avatar:store(TNTGun.explosionAvatarPath, explosions)
     else
@@ -70,10 +75,10 @@ function TNTGun:tick()
 end
 
 function TNTGun:apply(tank)
-    tank:setWeapon(TNTGunInstance:new(self, tank))
+    self.equip(tank, util.intID())
 end
 
-function TNTGun:handleWeaponDamages(hits, tank)
+function TNTGun:handleWeaponDamages(tank)
     local highCollisionShape, lowCollisionShape = tank:getCollisionShape()
 
     local middle = (tank.pos + (highCollisionShape + lowCollisionShape) / 2)
@@ -89,7 +94,6 @@ function TNTGun:handleWeaponDamages(hits, tank)
                     tank.health = tank.health - damage
                     tank.vel = tank.vel - (diff:normalize() * (5 - diff:length())) / 5
                     self.state:markTankPositionDirty()
-                    hits[uuid] = damage
                 end
             end
         end
@@ -107,13 +111,9 @@ function TNTGun:generateIconGraphics(group)
     group:newBlock("ee"):setBlock("tnt"):setMatrix(util.transform(
         matrices.translate4(-8, -8, -8),
         matrices.rotation4(0, 45, 0),
-        matrices.rotation4(30, 0, 0),
+        matrices.rotation4(-30, 0, 0),
         matrices.scale4(0.6, 0.6, 0.001)
     ))
 end
-
-
-
-
 
 return TNTGun

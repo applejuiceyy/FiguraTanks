@@ -1,5 +1,5 @@
 local class             = require("tank.class")
-local util              = require("tank.util")
+local util              = require("tank.util.util")
 
 
 ---@params PingChannel State
@@ -7,9 +7,9 @@ local Speed             = class("Speed")
 ---@params Speed Tank number integer
 local SpeedInstance     = class("SpeedInstance")
 
-Speed.name = "default:speed"
+Speed.id = "default:speed"
 
-local texture = textures:fromVanilla(Speed.name .. "--speed", "textures/mob_effect/speed.png")
+local texture = textures:fromVanilla(Speed.id .. "--speed", "textures/mob_effect/speed.png")
 
 function Speed:init(pings, state)
     self.pings = pings
@@ -56,9 +56,12 @@ function SpeedInstance:tankMoveVerticallyInvoked(a, b, c)
     return a, b * 1.5, c
 end
 
+function SpeedInstance:shouldBeKept()
+    return self.lifespan > 0
+end
+
 function SpeedInstance:tick()
     self.lifespan = self.lifespan - 1
-    return self.lifespan > 0
 end
 
 function SpeedInstance:populateSyncQueue(consumer)

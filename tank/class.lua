@@ -8,7 +8,7 @@ end
 ---comment
 ---@param name string
 local class = function (name, subclass)
-    local obj = setmetatable({}, subclass or {functionsUseSelf = true})
+    local obj = setmetatable({}, subclass or {__index = {functionsUseSelf = true}})
     obj.class = obj
     obj.name = name
     obj.__index = obj

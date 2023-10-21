@@ -25,6 +25,7 @@ function ControlRepo:init()
     self.right = self:defineKey("right", true, "key.keyboard.d")
 
     self.shoot = self:defineKey("shoot", false, "key.keyboard.space")
+    self.ability = self:defineKey("ability", false, "key.keyboard.left.shift")
 
     self.nozzleup = self:defineKey("nozzleup", true, "key.keyboard.up")
     self.nozzledown = self:defineKey("nozzledown", true, "key.keyboard.down")

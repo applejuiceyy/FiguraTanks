@@ -178,6 +178,19 @@ util = {
         particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.x_z + high._y_))
         particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low._yz + high.x__))
         particles:newParticle("minecraft:dust 0.1 0.2 1 1", mat:apply(low.xyz + high.___))
+    end,
+
+    ---@param tank Tank
+    removeWeaponEffects = function(tank)
+        local v = {}
+        for vid, effect in pairs(tank.effects) do
+            if effect.isWeapon then
+                v[vid] = true
+            end
+        end
+        for vid in pairs(v) do
+            tank:removeEffect(vid)
+        end
     end
 }
 

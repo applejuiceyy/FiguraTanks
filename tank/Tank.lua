@@ -3,8 +3,10 @@ local collision = require("tank.collision")
 local class     = require("tank.class")
 local settings  = require("tank.settings")
 local Control   = require("tank.host.controller.Control")
+local util      = require("tank.util.util")
 
----@params ControlRepo fun():table
+
+---@params ControlRepo {specifyTank:fun(...:any):any}[]
 local Tank      = class("Tank")
 
 local waterlogs = {
@@ -17,7 +19,8 @@ local waterlogs = {
 
 local overrideVelocityMultiplier = {
     ["minecraft:slime_block"] = 0.2,
-    ["minecraft:white_concrete"] = 1.3
+    ["minecraft:white_concrete"] = 1.3,
+    ["minecraft:sand"] = 0.4
 }
 
 local function includes(t, v)
@@ -88,7 +91,7 @@ end
 
 
 
-function Tank:init(controlRepo, weaponHandler)
+function Tank:init(controlRepo, managers)
     self.pos = vec(0, 0, 0)
     self.angle = 0
     self.nozzle = vec(0, 0)
@@ -101,35 +104,67 @@ function Tank:init(controlRepo, weaponHandler)
     self.health = 100
     self.fire = -1
 
-    self.dead = false
     self.charge = 1
     self.dash = 1
     self.dashing = false
 
     self.controlRepo = controlRepo
     self.controller = Control:new(controlRepo)
-    self.weaponHandler = weaponHandler
 
     self.onDeath = Event:new()
     self.onDash = Event:new()
+    self.onEffectsModified = Event:new()
+    self.onDamage = Event:new()
 
-    self.currentWeapon = nil
     self.effects = {}
-end
+    self.tankManagers = {}
 
+    for _, manager in pairs(managers) do
+        local r = util.callOn(manager, "specifyTank", self)
+        if r ~= nil then
+            table.insert(self.tankManagers, r)
+        end
+    end
+end
+---@param vid integer
+---@param effect Effect
 function Tank:addEffect(vid, effect)
+    util.callOn(effect, "beforeApply", self)
     self.effects[vid] = effect
+    util.callOn(effect, "afterApply", self)
+    self.onEffectsModified:fire(vid, effect)
+    print("adding effect")
 end
 
 function Tank:hasEffect(vid)
     return self.effects[vid] ~= nil
 end
 
-function Tank:setWeapon(gunFactory)
-    if self.currentWeapon ~= nil then
-        self.currentWeapon:tankWeaponDispose()
+function Tank:hasEffectByName(name)
+    for _, effect in pairs(self.effects) do
+        if name == effect.name then
+            return true
+        end
     end
-    self.currentWeapon = gunFactory
+    return false
+end
+
+function Tank:removeEffect(vid)
+    util.callOn(self.effects[vid], "dispose")
+    self.onEffectsModified:fire(vid, effect)
+    self.effects[vid] = nil
+    print("removing effect")
+end
+
+function Tank:takeDamage(damage)
+    self.health = self.health - damage
+    if self.health < 0 then
+        self.health = 0
+    end
+end
+
+function Tank:isDead()
+    return self.health <= 0
 end
 
 function Tank:flushLerps()
@@ -163,7 +198,7 @@ function Tank:moveVertically()
         self.health = self.health + math.min(0, (self.vel.y + 1) * 100)
         self.vel.y = 0
     else
-        friction = 0.9
+        friction = 1
         speedMultiplier = 1
     end
 
@@ -187,10 +222,6 @@ function Tank:moveHorizontally()
     self:invokeInterested("MoveHorizontally")
 end
 
-function Tank:handleWeaponDamages()
-    return self:invokeInterested("HandleWeaponDamages", self.weaponHandler())
-end
-
 function Tank:takeDamageFromBlocks()
     if self:collidesWithWorld(blocksWithFluid("minecraft:water")) then
         self.vel = self.vel * 0.4
@@ -211,7 +242,6 @@ function Tank:takeDamageFromBlocks()
         self.fire = self.fire + 2
         self.health = self.health - 1
     end
-
     if self.fire > -1 then
         self.fire = self.fire - 1
         self.health = self.health - 0.5
@@ -276,16 +306,6 @@ function Tank:fetchControls()
             nozzleMomentum.x = nozzleMomentum.x - 2
         end
 
-        if self.currentWeapon ~= nil then
-            self.currentWeapon:tick()
-        end
-
-        for vid, v in pairs(self.effects) do
-            if not v:tick() then
-                self.effects[vid] = nil
-            end
-        end
-
         if self.controller:isPressed(self.controlRepo.dash) and self.dash >= 1 then
             self.dashing = true
             self.onDash:fire()
@@ -296,13 +316,20 @@ function Tank:fetchControls()
 end
 
 function Tank:invokeInterested(name, ...)
+    return self:invokeRawInterested("tank" .. name .. "Invoked", ...)
+end
+
+function Tank:invokeRawInterested(name, ...)
     local stuff = {...}
-    if self.currentWeapon ~= nil and self.currentWeapon["tank" .. name .. "Invoked"] ~= nil then
-        stuff = {self.currentWeapon["tank" .. name .. "Invoked"](self.currentWeapon, table.unpack(stuff))}
+
+    for _, manager in pairs(self.tankManagers) do
+        if manager[name] ~= nil then
+            stuff = {manager[name](manager, table.unpack(stuff))}
+        end
     end
     for _, effect in pairs(self.effects) do
-        if effect["tank" .. name .. "Invoked"] ~= nil then
-            stuff = {effect["tank" .. name .. "Invoked"](effect, table.unpack(stuff))}
+        if effect[name] ~= nil then
+            stuff = {effect[name](effect, table.unpack(stuff))}
         end
     end
 
@@ -314,8 +341,6 @@ function Tank:tick()
 
     self.charge = math.min(self.charge + 0.1, 1)
 
-
-    local hits = self:handleWeaponDamages()
     self.vel.y = self.vel.y - 0.05
     local friction, speedMultiplier, ground = self:moveVertically()
 
@@ -328,7 +353,7 @@ function Tank:tick()
     end
 
     local targetVelocity, targetAngleMomentum, nozzleMomentum = self:fetchControls()
-
+    self:invokeRawInterested("tick")
 
     if speedMultiplier > 1 then
         targetVelocity = targetVelocity * speedMultiplier
@@ -375,8 +400,13 @@ function Tank:tick()
         self.health = 0
     end
 
+    for vid, effect in pairs(self.effects) do
+        if not util.callOn(effect, "shouldBeKept") then
+            self:removeEffect(vid)
+        end
+    end
+
     return {
-        hits = hits,
         friction = friction,
         speedMultiplier = speedMultiplier,
         targetVelocity = targetVelocity,
@@ -386,29 +416,27 @@ function Tank:tick()
 end
 
 function Tank:serialise()
-    return self.pos, self.vel, self.angle, self.anglevel, self.health, self.nozzle, self.dead, self.fire
+    return self.pos, self.vel, self.angle, self.anglevel, self.health, self.nozzle, self.fire
 end
 
 function Tank:serialiseCritical()
-    return self.pos, self.vel, self.health, self.dead, self.fire
+    return self.pos, self.vel, self.health, self.fire
 end
 
-function Tank:apply(pos, vel, angle, anglevel, health, nozzle, dead, fire)
+function Tank:apply(pos, vel, angle, anglevel, health, nozzle, fire)
     self.pos = pos
     self.vel = vel
     self.angle = angle
     self.anglevel = anglevel
     self.health = health
     self.nozzle = nozzle
-    self.dead = dead
     self.fire = fire
 end
 
-function Tank:applyCritical(pos, vel, health, dead, fire)
+function Tank:applyCritical(pos, vel, health, fire)
     self.pos = pos
     self.vel = vel
     self.health = health
-    self.dead = dead
     self.fire = fire
 end
 

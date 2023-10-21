@@ -1,6 +1,6 @@
 local class          = require("tank.class")
-local RayBeamGunInstance = require("tank.items.raybeam.RayBeamGunInstance")
-local util        = require("tank.util")
+local RayBeamGunInstance = require("tank.items.raybeam.RayBeamGunEffect")
+local util        = require("tank.util.util")
 local collision = require("tank.collision")
 local settings       = require("tank.settings")
 
@@ -9,23 +9,8 @@ local settings       = require("tank.settings")
 local RayBeamGun = class("RayBeamGun")
 
 
-RayBeamGun.name = "default:raybeam"
-RayBeamGun.rayAvatarPath = "__FiguraTanks_" .. RayBeamGun.name .. "_rays"
-RayBeamGun.requiredPings = {
-    startShooting = function(self, tank)
-    end,
-
-    shoot = function(self, tank, pos, dir)
-        self:_shootAfterPing(tank, pos, dir)
-    end,
-
-    equip = function(self, tank, bulletsRemaining)
-        if tank.currentWeapon == nil or tank.currentWeapon.class ~= RayBeamGunInstance then
-            return self:_applyAfterPing(tank, bulletsRemaining)
-        end
-        tank.currentWeapon.bulletsRemaining = bulletsRemaining
-    end
-}
+RayBeamGun.id = "default:raybeam"
+RayBeamGun.rayAvatarPath = "__FiguraTanks_" .. RayBeamGun.id .. "_rays"
 
 function RayBeamGun:init(pings, state)
     self.pings = pings
@@ -33,9 +18,9 @@ function RayBeamGun:init(pings, state)
 
     self.startShootingPing = pings:register{
         name = "startShooting",
-        arguments = {"tank"},
-        func = function(tank)
-            self:_startShootingAfterPing(tank)
+        arguments = {"tank", "default"},
+        func = function(tank, id)
+            self:_startShootingAfterPing(tank, id)
         end
     }
 
@@ -49,12 +34,12 @@ function RayBeamGun:init(pings, state)
 
     self.equipPing = pings:register{
         name = "equip",
-        arguments = {"tank", "default"},
-        func = function(tank, bulletsRemaining)
-            if tank.currentWeapon == nil or tank.currentWeapon.class ~= RayBeamGunInstance then
-                return self:_applyAfterPing(tank, bulletsRemaining)
+        arguments = {"tank", "default", "default"},
+        func = function(tank, bullets, id)
+            if not tank:hasEffect(id) then
+                return self:_applyAfterPing(tank, bullets, id)
             end
-            tank.currentWeapon.bulletsRemaining = bulletsRemaining
+            tank.effects[id].bulletsRemaining = bullets
         end
     }
 
@@ -122,16 +107,18 @@ function RayBeamGun:tick()
 end
 
 function RayBeamGun:apply(tank)
-    self.equipPing(tank, 4)
+    self.equipPing(tank, 4, util.intID())
 end
 
 
-function RayBeamGun:_applyAfterPing(tank, bulletsRemaining)
-    tank:setWeapon(RayBeamGunInstance:new(self, tank, bulletsRemaining))
+function RayBeamGun:_applyAfterPing(tank, bulletsRemaining, id)
+    util.removeWeaponEffects(tank)
+    id = id or util.intID()
+    tank:addEffect(id, RayBeamGunInstance:new(self, tank, bulletsRemaining, id))
 end
 
-function RayBeamGun:startShooting(tank)
-    self.startShootingPing(tank)
+function RayBeamGun:startShooting(tank, id)
+    self.startShootingPing(tank, id)
 end
 
 function RayBeamGun:shoot(tank)
@@ -164,9 +151,9 @@ function RayBeamGun:handleWeaponDamages(hits, tank)
     end
 end
 
-function RayBeamGun:_startShootingAfterPing(tank)
-    if tank.currentWeapon.class == RayBeamGunInstance then
-        tank.currentWeapon:startShooting()
+function RayBeamGun:_startShootingAfterPing(tank, id)
+    if tank:hasEffect(id) then
+        tank.effects[id]:startShooting()
     end
 end
 

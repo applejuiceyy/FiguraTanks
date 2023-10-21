@@ -1,10 +1,13 @@
 local class       = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 
----@params RayBeamGun Tank integer
-local RayBeamGunInstance = class("RayBeamGunInstance")
+---@params RayBeamGun Tank integer integer
+local RayBeamGunEffect = class("RayBeamGunEffect")
 
-function RayBeamGunInstance:init(owner, tank, bulletsRemaining)
+
+RayBeamGunEffect.isWeapon = true
+
+function RayBeamGunEffect:init(owner, tank, bulletsRemaining, id)
     self.owner = owner
     self.tank = tank
 
@@ -12,9 +15,13 @@ function RayBeamGunInstance:init(owner, tank, bulletsRemaining)
     self.charged = false
     self.isShooting = false
     self.bulletsRemaining = bulletsRemaining
+    self.id = id
 end
 
-function RayBeamGunInstance:tick()
+function RayBeamGunEffect:tick()
+    if self.tank.health <= 0 and self.isShooting then
+        self.isShooting = false
+    end
     if self.isShooting then
         self.charge = self.charge - 0.02
         self.charge = math.max(0, self.charge)
@@ -52,51 +59,67 @@ function RayBeamGunInstance:tick()
     end
     
     if self.tank.controller:isPressed(self.owner.state.controlRepo.shoot) and self.charge >= 1 then
-        self.owner:startShooting(self.tank)
+        self.owner:startShooting(self.tank, self.id)
     end
 end
 
 
-function RayBeamGunInstance:startShooting()
+function RayBeamGunEffect:startShooting()
     self.bulletsRemaining = self.bulletsRemaining - 1
     self.isShooting = true
 end
 
-function RayBeamGunInstance:populateSyncQueue(consumer)
+function RayBeamGunEffect:populateSyncQueue(consumer)
     consumer(function()
-        if self.tank.currentWeapon == self then
-            self.owner.equipPing(self.tank, self.bulletsRemaining)
+        if self.tank:hasEffect(self.id) then
+            self.owner.equipPing(self.tank, self.bulletsRemaining, self.id)
         end
     end)
 end
 
-function RayBeamGunInstance:generateIconGraphics(group)
+function RayBeamGunEffect:generateIconGraphics(group)
     return self.owner:generateIconGraphics(group)
 end
 
-function RayBeamGunInstance:generateHudInfoGraphics(group, constraints)
-    local charge = group:newBlock("ee"):setBlock("yellow_concrete")
-    local text = group:newText("e")
+function RayBeamGunEffect:shouldBeKept()
+    return true
+end
+
+function RayBeamGunEffect:specifyHUD(hud)
     return {
-        tick = function()
-            local w = self.charge
-            if self.isShooting then
-                w = 1 - math.pow(1 - self.charge, 3)
-            end
-            charge
-            :setPos(0, (constraints.y / 2 - 2), 0)
-            :setScale(constraints.x / 16 * w, 4 / 16, 1)
+        showsCustomInformation = function()
+            return true
+        end,
 
-            local t = string.format('[{"text":%q, "color":"#ff4422"}, {"text":" bullets", "color":"#000000"}]', self.bulletsRemaining)
+        icon = function(group)
+            return self.owner:generateIconGraphics(group)
+        end,
 
-            text
-            :setText(t)
-            :setPos(client.getTextWidth(t), 9, 0)
+        information = function(group, constraints)
+            local charge = group:newBlock("ee"):setBlock("yellow_concrete")
+            local text = group:newText("e")
+            return {
+                tick = function()
+                    local w = self.charge
+                    if self.isShooting then
+                        w = 1 - math.pow(1 - self.charge, 3)
+                    end
+                    charge
+                    :setPos(0, (constraints.y / 2 - 2), 0)
+                    :setScale(constraints.x / 16 * w, 4 / 16, 1)
+
+                    local t = string.format('[{"text":%q, "color":"#ff4422"}, {"text":" bullets", "color":"#000000"}]', self.bulletsRemaining)
+
+                    text
+                    :setText(t)
+                    :setPos(client.getTextWidth(t), 9, 0)
+                end
+            }
         end
     }
 end
 
-function RayBeamGunInstance:generateTankModelGraphics(tankModel)
+function RayBeamGunEffect:specifyModel(tankModel)
     return {
         tick = function()
             if (not tankModel.isHUD) and self.isShooting then
@@ -119,13 +142,13 @@ function RayBeamGunInstance:generateTankModelGraphics(tankModel)
     }
 end
 
-function RayBeamGunInstance:tankFetchControlsInvoked(a, b, c)
+function RayBeamGunEffect:tankFetchControlsInvoked(a, b, c)
     if self.isShooting then
         return a * 0.2, b * 0.2, c * 0.2
     end
     return a, b, c
 end
 
-function RayBeamGunInstance:tankWeaponDispose() end
+function RayBeamGunEffect:tankWeaponDispose() end
 
-return RayBeamGunInstance
+return RayBeamGunEffect

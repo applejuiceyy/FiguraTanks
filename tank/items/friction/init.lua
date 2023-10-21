@@ -1,5 +1,5 @@
 local class          = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 
 ---@params PingChannel State
 local Friction = class("Friction")
@@ -7,7 +7,7 @@ local Friction = class("Friction")
 local FrictionInstance = class("FrictionInstance")
 
 
-Friction.name = "default:friction"
+Friction.id = "default:friction"
 
 
 function Friction:init(pings, state)
@@ -68,9 +68,12 @@ function FrictionInstance:tankMoveVerticallyInvoked(a, b, c)
     return a * 0.9, b * (math.max(a - 0.8, 0) * 2 + 1), c
 end
 
+function FrictionInstance:shouldBeKept()
+    return self.lifespan > 0
+end
+
 function FrictionInstance:tick()
     self.lifespan = self.lifespan - 1
-    return self.lifespan > 0
 end
 
 function FrictionInstance:populateSyncQueue(consumer)

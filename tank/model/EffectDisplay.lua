@@ -1,5 +1,5 @@
 local class       = require("tank.class")
-local util        = require("tank.util")
+local util        = require("tank.util.util")
 
 local EffectDisplay = class("EffectDisplay")
 
