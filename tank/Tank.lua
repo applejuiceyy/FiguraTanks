@@ -141,12 +141,15 @@ function Tank:hasEffect(vid)
 end
 
 function Tank:hasEffectByName(name)
-    for _, effect in pairs(self.effects) do
+    return not not self:getEffectByName(name)
+end
+
+function Tank:getEffectByName(name)
+    for id, effect in pairs(self.effects) do
         if name == effect.name then
-            return true
+            return id
         end
     end
-    return false
 end
 
 function Tank:removeEffect(vid)
@@ -442,6 +445,12 @@ end
 
 function Tank:getCollisionShape()
     return vec(0.3, 0.5, 0.3), vec(-0.3, 0, -0.3)
+end
+
+function Tank:dispose()
+    for _, effect in pairs(self.effects) do
+        util.callOn(effect, "dispose")
+    end
 end
 
 return Tank

@@ -7,8 +7,8 @@ local function collidesWithRectangle(highpos, lowpos, highthat, lowthat)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat.__z + highthat.xy_)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat.x_z + highthat._y_)
     particles:newParticle("minecraft:dust 1 1 1 1", lowthat._yz + highthat.x__)
-    particles:newParticle("minecraft:dust 1 1 1 1", lowthat.xyz + highthat.___)]]
-
+    particles:newParticle("minecraft:dust 1 1 1 1", lowthat.xyz + highthat.___)
+]]
 
     local e = highpos.x > lowthat.x and highpos.y > lowthat.y and highpos.z > lowthat.z
     and lowpos.x < highthat.x and lowpos.y < highthat.y and lowpos.z < highthat.z

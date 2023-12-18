@@ -144,7 +144,7 @@ return command.withPrefix(">", vec(0.3, 0.6, 0.9))
                     ctx:respond("Unknown crate")
                     return
                 end
-                State.crateSpawner.sharedWorldState:newEntity(util.intID(), player:getPos(), id, world.getTime() + 100, nil, false)
+                State.crateSpawner.sharedWorldState:newEntity(util.intID(), player:getPos(), id, world.getTime() + 100, 0, false)
             end)
             :suggests(function()
                 local ret = {}

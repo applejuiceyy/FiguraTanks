@@ -29,7 +29,7 @@ function Friction:render() end
 function Friction:tick() end
 
 function Friction:apply(tank)
-    self.frictionPing(tank, 1000, util.intID())
+    self.frictionPing(tank, 800, util.intID())
 end
 
 function Friction:handleWeaponDamages(hits, tank)
@@ -65,7 +65,7 @@ function FrictionInstance:tankMoveVerticallyInvoked(a, b, c)
         return a, b, c
     end
 
-    return a * 0.9, b * (math.max(a - 0.8, 0) * 2 + 1), c
+    return a * 0.9, b * (math.max(a - 0.8, 0) * 4 + 1), c
 end
 
 function FrictionInstance:shouldBeKept()
@@ -89,7 +89,7 @@ function FrictionInstance:generateIconGraphics(group)
     local bar = group:newBlock("bar"):block("redstone_block"):setPos(-8, -8, 0.5)
     return {
         tick = function()
-            bar:setScale(1, self.lifespan / 1000, 0.01)
+            bar:setScale(1, self.lifespan / 800, 0.01)
         end
     }
 end

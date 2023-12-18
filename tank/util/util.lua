@@ -61,6 +61,14 @@ util = {
         return vec(math.random(), math.random(), math.random())
     end,
 
+    centeredUnitRandom = function()
+        return vec(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5)
+    end,
+
+    xzCenteredUnitRandom = function()
+        return vec(math.random() - 0.5, math.random(), math.random() - 0.5)
+    end,
+
     group = createGroup,
     worldGroup = function()
         local group = createGroup()

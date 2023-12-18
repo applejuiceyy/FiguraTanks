@@ -1,4 +1,6 @@
 local class       = require("tank.class")
+local Differential= require("tank.util.Differential")
+local util        = require("tank.util.util")
 
 local TankModelController = class("TankModelController")
 
@@ -11,6 +13,21 @@ function TankModelController:init(opt)
 
     self.focusingTank = false
     self.thirdPersonCameraRot = vec(0, 0)
+
+    self.effectDifferential = Differential:new(
+        function()
+            return pairs(self.tank.effects)
+        end,
+        function(key, value)
+            return util.callOn(value, "specifyController", self)
+        end,
+        function(thing)
+            util.callOn(thing, "dispose")
+        end,
+        function(key)
+            return key
+        end
+    )
 end
 
 function TankModelController:beforeTankTick()
@@ -47,6 +64,10 @@ function TankModelController:render()
 
     local e = renderer:isFirstPerson() and self.focusingTank
     self.tankModel.focused = e
+
+    self.effectDifferential:update(function(thing)
+        util.callOn(thing, "render")
+    end)
 end
 
 function TankModelController:dispose()

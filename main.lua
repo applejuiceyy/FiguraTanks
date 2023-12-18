@@ -147,16 +147,3 @@ events.TICK:register(function()
         cooldown = cooldown - 1
     end
 end)
-
----@param o number
----@return number
-local function e(o)
-    return
-end
-
----@type {t:fun(o:number):number}
-local chees = {
-    t = function (o)
-        return "e"
-    end
-}

@@ -7,19 +7,96 @@ local SharedWorldState = require("tank.state.worldState.SharedWorldState")
 ---@params PingChannel State
 local CrateSpawner     = class("CrateSpawner")
 
+local function getCliffScore(pos)
+    local flatPos = pos:copy():floor()
+    local cliffScore = 0
+    local bigCliff = false
+    if not collision.collidesWithWorld(vec(1, 0, 0) + flatPos, vec(0, -3, -1) + flatPos) then
+        cliffScore = cliffScore + 1
+    end
+
+    if not collision.collidesWithWorld(vec(0, 0, 1) + flatPos, vec(-1, -3, 0) + flatPos) then
+        cliffScore = cliffScore + 1
+    end
+
+    if not collision.collidesWithWorld(vec(2, 0, 1) + flatPos, vec(1, -3, 0) + flatPos) then
+        cliffScore = cliffScore + 1
+    end
+    if not collision.collidesWithWorld(vec(1, 0, 2) + flatPos, vec(0, -3, 1) + flatPos) then
+        cliffScore = cliffScore + 1
+    end
+
+
+    if not collision.collidesWithWorld(vec(1, 0, 0) + flatPos, vec(0, -15, -1) + flatPos) then
+        cliffScore = cliffScore + 2
+        bigCliff = true
+    end
+    if not collision.collidesWithWorld(vec(0, 0, 1) + flatPos, vec(-1, -15, 0) + flatPos) then
+        cliffScore = cliffScore + 2
+        bigCliff = true
+    end
+    if not collision.collidesWithWorld(vec(2, 0, 1) + flatPos, vec(1, -15, 0) + flatPos) then
+        cliffScore = cliffScore + 2
+        bigCliff = true
+    end
+    if not collision.collidesWithWorld(vec(1, 0, 2) + flatPos, vec(0, -15, 1) + flatPos) then
+        cliffScore = cliffScore + 2
+        bigCliff = true
+    end
+
+    return cliffScore, bigCliff
+end
+
 local crates = {
-    ["default:health"] = true,
-    ["default:speed"] = true,
-    ["default:friction"] = true,
-    ["default:raybeam"] = true,
-    ["default:flamethrower"] = true
+    ["default:health"] = function()
+        return 50
+    end,
+    ["default:speed"] = function()
+        return 100
+    end,
+    ["default:friction"] = function(pos)
+        if string.find(world.getBlockState(pos - vec(0, 0.2, 0)).id, "ice") then
+            return 170
+        end
+        return 80
+    end,
+    ["default:raybeam"] = function(pos)
+        if world.getBlockState(pos - vec(0, 0.2, 0)).id == "minecraft:endstone" then
+            return 140
+        end
+        return 100
+    end,
+    ["default:flamethrower"] = function(pos)
+        if world.getBlockState(pos - vec(0, 0.2, 0)).id == "minecraft:sand" then
+            return 120
+        end
+        return 100
+    end,
+    ["default:teleport"] = function()
+        return 30
+    end,
+    ["default:aircontrol"] = function(pos)
+        return 25 * getCliffScore(pos)
+    end
 }
 
+local distanceFromOthers = {
+    ["default:aircontrol"] = function(pos)
+        local score, big = getCliffScore(pos)
+        if big then
+            return 0.5
+        end
+        return 20
+    end
+}
+
+local cratesChances = {}
 local cratesIndexed = {}
 
 for key in pairs(crates) do
     table.insert(cratesIndexed, key)
----@diagnostic disable-next-line: assign-type-mismatch
+    cratesChances[key] = crates[key]
+    ---@diagnostic disable-next-line: assign-type-mismatch
     crates[key] = #cratesIndexed
 end
 
@@ -309,21 +386,56 @@ function CrateSpawner:trySpawnCrate()
         return
     end
 
+    local crateKindIndex = self:pickGenerationCrate(place)
+    local crateKind = cratesIndexed[crateKindIndex]
+
+
+
+    local thisDistance = 20
+    
+    if distanceFromOthers[crateKind] ~= nil then
+        thisDistance = distanceFromOthers[crateKind](place)
+    end
     for uuid, id, data in self.sharedWorldState:iterateAllEntities() do
-        if (data.location - place):length() < 20 then
+        local kind = data.kind
+        local otherDistance = 20
+        if distanceFromOthers[kind] ~= nil then
+            otherDistance = distanceFromOthers[kind](place)
+        end
+        local distance = math.min(thisDistance, otherDistance)
+        if (data.location - place):length() < distance then
             return
         end
     end
 
-    self:trySpawnCrateAfterPositionIsPicked(place)
+    self:trySpawnCrateAfterPositionIsPicked(place, crateKindIndex)
 end
 
-function CrateSpawner:trySpawnCrateAfterPositionIsPicked(place)
-    local kindIndex = math.random(1, #cratesIndexed)
+function CrateSpawner:pickGenerationCrate(place)
+    local size = 0
+    local weights = {}
+    for key, weightGen in pairs(cratesChances) do
+        local o = weightGen(place)
+        size = size + o
+        table.insert(weights, {allowance = size, key = crates[key], s=key})
+    end
 
+    local selected = math.random(1, size)
+    local kindIndex
+    for i, thing in ipairs(weights) do
+        if thing.allowance >= selected then
+            kindIndex = thing.key
+            break
+        end
+    end
+
+    return kindIndex
+end
+
+function CrateSpawner:trySpawnCrateAfterPositionIsPicked(place, index)
     local golden = false
     local timeGone = 0
-    if cratesIndexed[kindIndex] == "default:health" and math.random() > 0.9 then
+    if cratesIndexed[index] == "default:health" and math.random() > 0.9 then
         local moreCrate = 2
         local percentage = 0.3
         if math.random() > 0.9 then
@@ -337,7 +449,7 @@ function CrateSpawner:trySpawnCrateAfterPositionIsPicked(place)
         timeGone = world.getTime() + 500
     end
 
-    self.sharedWorldState:newEntity(util.intID(), place, kindIndex, world.getTime() + 100, timeGone, golden)
+    self.sharedWorldState:newEntity(util.intID(), place, index, world.getTime() + 100, timeGone, golden)
     self.tryingToSpawnCrates = false
 end
 

@@ -34,11 +34,23 @@ function Differential:update(update)
             self.current[key] = val
         end
         seen[key] = true
+    end
+    debugger:region("update")
+
+    iterator, invariant, control = self.iterator()
+    
+    while true do
+        local stuff = {iterator(invariant, control)}
+        control = stuff[1]
+        if control == nil then break end
+
+        local key = self.keyer(table.unpack(stuff))
 
         if self.current[key] ~= SENTINEL then
             update(self.current[key])
         end
     end
+
     debugger:region("pruning")
     local o = {}
     for key, v in pairs(self.current) do

@@ -82,6 +82,7 @@ function TankComplex:dispose()
         debugger:region(nil)
     end
     models.world:removeChild(self.tankModelGroup)
+    self.tank:dispose()
     self.keyboard:unlisten()
 end
 
