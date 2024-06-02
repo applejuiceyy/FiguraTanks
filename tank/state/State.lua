@@ -222,11 +222,14 @@ function State:tick()
     end
 
     avatar:store("entities", store)
-
+ 
     if host:isHost() then
         debugger:region("host only")
+        pcall(function() error("Heheheh") end)
         if #self.syncQueue > 0 then
+            if world.getTime() % 5 == 0 then
             table.remove(self.syncQueue, 1)()
+            end
         else
             self.syncTime = self.syncTime - 1
             if self.syncTime < 0 then

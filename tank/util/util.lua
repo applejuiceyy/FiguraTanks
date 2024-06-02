@@ -108,7 +108,7 @@ util = {
     addSlotTexture = function(group)
         return group:newSprite("slot")
         :setRenderType("TRANSLUCENT_CULL")
-        :texture(textures["textures.slot"])
+        :texture(textures["textures.slot"], 22, 22)
         :pos(11, 11, 1)
     end,
 

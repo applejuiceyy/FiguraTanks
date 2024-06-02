@@ -1,5 +1,5 @@
 if debugger == nil then
-    debugger = {marker = function(_,__) end, region = function(_,__) end}
+    debugger = {marker = function(_,__) end, region = function(_,__) end, breakpoint = function() end}
 end
 
 local State = require "tank.state.State"

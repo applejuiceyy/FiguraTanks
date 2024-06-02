@@ -265,7 +265,7 @@ function Tank:avoidSuffocation()
 end
 
 function Tank:takeVoidDamage()
-    if self.pos.y < -60 then
+    if self.pos.y < -70 then
         self.health = self.health - 5
     end
 end

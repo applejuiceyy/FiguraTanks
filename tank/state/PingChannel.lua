@@ -9,12 +9,12 @@ local function convertArguments(arguments, argumentPointer, argumentTypes, conve
         local argument = arguments[argumentPointer]
         local success, result = converters[type][directive](argument)
         if not success then
-            error(result)
+            return false, result, argumentPointer
         end
         table.insert(ret, result)
         argumentPointer = argumentPointer + 1
     end
-    return ret, argumentPointer
+    return true, ret, argumentPointer
 end
 
 function PingChannel:init(name, backer, converters, dispatchArguments)
@@ -50,8 +50,12 @@ function PingChannel:register(opt)
         return og
     end
     return function(...)
-        local converted = convertArguments({...}, 1, opt.arguments, self.converters, "deflate")
-        og(table.unpack(converted, 1, #opt.arguments))
+        local success, converted = convertArguments({...}, 1, opt.arguments, self.converters, "deflate")
+        if success then
+            og(table.unpack(converted, 1, #opt.arguments))
+        else
+            print("Voiding channel event because of conversion error: " .. converted)
+        end
     end
 end
 
@@ -67,23 +71,31 @@ end
 function PingChannel:handle(name, arguments, pointer)
     if self.routing[name] ~= nil then
         local things = self.routing[name]
-        local converted, newPointer = convertArguments(arguments, pointer, things.arguments, self.converters, "inflate")
-        things.func(table.unpack(converted))
+        local success, converted, newPointer = convertArguments(arguments, pointer, things.arguments, self.converters, "inflate")
+        if success then
+            things.func(table.unpack(converted))
+        else
+            print("Voiding channel event because of conversion error: " .. converted)
+        end
         return
     end
     local child = self.childRouting[name]
     if #child.dispatchArguments == 0 then
         return child.dispatch():handle(child.name, arguments, pointer)
     else
-        local converted, newPointer = convertArguments(arguments, pointer, child.dispatchArguments, self.converters, "inflate")
-
-        local value = child.dispatch(table.unpack(converted))
-
-        if value == nil then
-            return
-        end
+        local success, converted, newPointer = convertArguments(arguments, pointer, child.dispatchArguments, self.converters, "inflate")
         
-        value:handle(child.name, arguments, newPointer)
+        if success then
+            local value = child.dispatch(table.unpack(converted))
+
+            if value == nil then
+                return
+            end
+            
+            value:handle(child.name, arguments, newPointer)
+        else
+            print("Voiding channel event because of conversion error: " .. converted)
+        end
     end
 end
 
@@ -100,8 +112,12 @@ function PingChannel:inherit(name, dispatchArguments, dispatch, resolve, convert
             return og
         end
         return function(...)
-            local converted = convertArguments(resolve, 1, dispatchArguments, channel.converters, "deflate")
-            og(table.unpack(converted, 1, #dispatchArguments), ...)
+            local success, converted = convertArguments(resolve, 1, dispatchArguments, channel.converters, "deflate")
+            if success then
+                og(table.unpack(converted, 1, #dispatchArguments), ...)
+            else
+                print("Voiding channel event because of conversion error: " .. converted)
+            end
         end
     end, setmetatable(converters, {__index=self.converters}), dispatchArguments)
     return channel

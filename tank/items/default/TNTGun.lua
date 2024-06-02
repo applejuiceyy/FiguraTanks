@@ -8,6 +8,7 @@ local util           = require("tank.util.util")
 ---@params PingChannel State
 local TNTGun = class("TNTGun")
 
+
 TNTGun.id = "default:tntgun"
 TNTGun.explosionAvatarPath = "__FiguraTanks_" .. TNTGun.id .. "_explosion"
 

@@ -39,7 +39,7 @@ function Health:handleWeaponDamages(hits, tank)
 end
 
 function Health:generateIconGraphics(group)
-    group:newSprite("e"):texture(texture):pos(9, 9, 0):setRenderType("TRANSLUCENT_CULL")
+    group:newSprite("e"):texture(texture, 16, 16):pos(9, 9, 0):setRenderType("TRANSLUCENT_CULL")
 end
 
 

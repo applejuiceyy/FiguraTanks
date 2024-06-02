@@ -84,7 +84,7 @@ local distanceFromOthers = {
     ["default:aircontrol"] = function(pos)
         local score, big = getCliffScore(pos)
         if big then
-            return 0.5
+            return 5
         end
         return 20
     end

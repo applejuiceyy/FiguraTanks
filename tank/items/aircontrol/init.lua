@@ -40,7 +40,7 @@ function AirControl:handleWeaponDamages(hits, tank)
 end
 
 function AirControl:generateIconGraphics(group)
-    group:newSprite("e"):texture(texture):pos(8, 8, 0):setRenderType("TRANSLUCENT_CULL")
+    group:newSprite("e"):texture(texture, 16, 16):pos(8, 8, 0):setRenderType("TRANSLUCENT_CULL")
 end
 
 
@@ -97,7 +97,7 @@ function AirControlInstance:populateSyncQueue(consumer)
 end
 
 function AirControlInstance:generateIconGraphics(group)
-    group:newSprite("e"):texture(texture):pos(9, 9, 0):setRenderType("TRANSLUCENT_CULL")
+    group:newSprite("e"):texture(texture, 16, 16):pos(9, 9, 0):setRenderType("TRANSLUCENT_CULL")
     local bar = group:newBlock("bar"):block("redstone_block"):setPos(-8, -8, 0.5)
     return {
         tick = function()

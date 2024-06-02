@@ -300,7 +300,7 @@ function BlockDamage:setDamage(stage)
     for _, tasks in pairs(self.tasksPerCull) do
         for task, shape in pairs(tasks) do
             local p = (shape[1] - shape[2]) * 16
-            task:texture(damageTextures[math.floor(stage) + 1])
+            task:texture(damageTextures[math.floor(stage) + 1], 16, 16)
                     :uv(shape[2])
                     :region(p)
         end
